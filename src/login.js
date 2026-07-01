@@ -1,0 +1,59 @@
+import { spawn } from 'node:child_process'
+import { writeSaved } from './config.js'
+
+// Abre a URL no navegador do usuario (best-effort; a URL impressa no terminal ja resolve).
+function openBrowser(url) {
+  const platform = process.platform
+  const cmd = platform === 'win32' ? 'cmd' : platform === 'darwin' ? 'open' : 'xdg-open'
+  const args = platform === 'win32' ? ['/c', 'start', '', url] : [url]
+  try {
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true })
+    child.on('error', () => {})
+    child.unref()
+  } catch {
+    /* ignora: a URL no console resolve */
+  }
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// Device flow (Onboarding Parte A): pede um code, o usuario aprova logado no site, o CLI
+// faz polling e salva o token. Estilo `gh auth login` - sem copiar/colar token a mao.
+export async function runLogin(url, out = process.stdout) {
+  const base = url.replace(/\/$/, '')
+  out.write(`Conectando ao Tether em ${base}\n`)
+
+  const startRes = await fetch(base + '/api/auth/device/start', { method: 'POST' })
+  if (!startRes.ok) throw new Error(`nao consegui iniciar o login (device/start -> HTTP ${startRes.status})`)
+  const d = await startRes.json()
+  const verifyUrl = d.verification_url_complete || `${base}/conectar?code=${d.user_code}`
+
+  out.write('\n')
+  out.write('  1. Abra no navegador (ja logado no Tether):\n')
+  out.write(`     ${verifyUrl}\n`)
+  out.write(`  2. Confira o codigo:  ${d.user_code}\n`)
+  out.write('\nAguardando a autorizacao no site...\n')
+  openBrowser(verifyUrl)
+
+  const interval = (d.interval || 2) * 1000
+  const deadline = Date.now() + (d.expires_in || 600) * 1000
+  while (Date.now() < deadline) {
+    await sleep(interval)
+    const pr = await fetch(base + '/api/auth/device/poll', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ device_code: d.device_code }),
+    })
+    if (pr.status === 202) continue
+    if (pr.status === 200) {
+      const body = await pr.json()
+      writeSaved({ url: base, token: body.token })
+      out.write('\nConectado. Token salvo em ~/.config/tether/token.json\n')
+      out.write('O Claude ja escreve no tracker como voce. Pode fechar a aba do navegador.\n')
+      return
+    }
+    if (pr.status === 410) throw new Error('o codigo expirou; rode o login de novo')
+    throw new Error(`falha no login (poll -> HTTP ${pr.status})`)
+  }
+  throw new Error('tempo esgotado esperando a autorizacao; rode o login de novo')
+}
