@@ -13,8 +13,10 @@ function fail(err) {
 
 // Sobe o MCP server (stdio). As tools espelham as do tether e falam com a API REST da nuvem.
 export async function runServer(config) {
-  if (!config.token) {
-    process.stderr.write('[tether-mcp] sem token - rode "tether-mcp login" (ou npx github:<owner>/tether-mcp login).\n')
+  if (!config.url || !config.token) {
+    process.stderr.write(
+      '[tether-mcp] ainda nao conectado - rode: TETHER_API_URL=<url> npx -y github:arsprengel/tether-mcp login\n',
+    )
   }
   const api = createApiClient(config)
   const server = new McpServer({ name: 'tether', version: '1.0.0' })

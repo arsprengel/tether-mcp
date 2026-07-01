@@ -1,8 +1,15 @@
 #!/usr/bin/env sh
 # Instala/atualiza o MCP do tether nesta maquina: deps + registro no Claude Code + login.
-# Uso: clone este repo e rode ./install.sh
+# Uso: TETHER_API_URL=https://SEU-TETHER ./install.sh   (o admin te passa a URL)
+#  ou: ./install.sh https://SEU-TETHER
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
+URL="${TETHER_API_URL:-$1}"
+if [ -z "$URL" ]; then
+  echo "Falta o endereco do Tether. Rode assim (o admin te passa a URL):"
+  echo "    TETHER_API_URL=https://SEU-TETHER $0"
+  exit 1
+fi
 
 echo "==> instalando dependencias"
 ( cd "$DIR" && npm install --omit=dev --silent )
@@ -17,7 +24,7 @@ else
 fi
 
 echo "==> conectando esta maquina ao Tether (abre o navegador; autorize logado)"
-node "$DIR/bin.js" login
+TETHER_API_URL="$URL" node "$DIR/bin.js" login
 
 echo ""
 echo "Pronto. Abra o Claude em qualquer projeto e peca: \"lista as pendencias do tether\"."

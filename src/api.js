@@ -2,10 +2,13 @@
 // Injeta o project da pasta aberta como default (Onboarding Parte C); a IA pode sobrescrever
 // passando project explicito para mexer em outro projeto.
 export function createApiClient({ url, token, project }, fetchImpl = fetch) {
-  const base = url.replace(/\/$/, '')
+  const base = (url || '').replace(/\/$/, '')
   const authHeaders = { authorization: `Bearer ${token}` }
 
   async function req(method, path, body) {
+    if (!base || !token) {
+      throw new Error('nao conectado - rode: TETHER_API_URL=<url> npx -y github:arsprengel/tether-mcp login')
+    }
     const headers = { ...authHeaders }
     const opt = { method, headers }
     if (body !== undefined) {

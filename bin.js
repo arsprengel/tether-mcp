@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { resolveConfig, clearSaved, readSaved, DEFAULT_URL } from './src/config.js'
+import { resolveConfig, clearSaved, readSaved } from './src/config.js'
 import { runServer } from './src/server.js'
 import { runLogin } from './src/login.js'
 
@@ -7,7 +7,14 @@ const cmd = process.argv[2]
 
 async function main() {
   if (cmd === 'login') {
-    const url = process.env.TETHER_API_URL || readSaved()?.url || DEFAULT_URL
+    const url = process.env.TETHER_API_URL || readSaved()?.url
+    if (!url) {
+      process.stderr.write(
+        'Defina o endereco do Tether no 1o login (o admin te passa), ex:\n' +
+          '  TETHER_API_URL=https://SEU-TETHER npx -y github:arsprengel/tether-mcp login\n',
+      )
+      process.exit(1)
+    }
     await runLogin(url)
     return
   }
@@ -33,7 +40,8 @@ async function main() {
         '  tether-mcp logout     apaga o token salvo',
         '  tether-mcp status     mostra url, projeto e se ha token',
         '',
-        'Env: TETHER_API_URL (default ' + DEFAULT_URL + '), TETHER_PROJECT (default = pasta atual).',
+        'Env: TETHER_API_URL (endereco do Tether; obrigatorio no 1o login, o admin te passa),',
+        '     TETHER_PROJECT (default = nome da pasta atual).',
         '',
       ].join('\n'),
     )

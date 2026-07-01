@@ -2,8 +2,9 @@ import { homedir } from 'node:os'
 import { join, basename } from 'node:path'
 import { mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync } from 'node:fs'
 
-// Dashboard padrao da Intecma. Trocavel por env TETHER_API_URL (outra instalacao/empresa).
-export const DEFAULT_URL = 'https://tether.intecma.com.br'
+// Sem endereco embutido de proposito: este repo e publico, mas o endereco do Tether e a conta
+// sao privados da equipe. A URL vem do admin (env TETHER_API_URL no 1o login) e fica salva
+// depois disso. A trava de acesso e o login do servidor, nao este codigo.
 
 export function configDir() {
   const base = process.env.XDG_CONFIG_HOME || join(homedir(), '.config')
@@ -47,7 +48,7 @@ export function clearSaved() {
 // certo no banco unico da nuvem, sem misturar projetos (Onboarding Parte C).
 export function resolveConfig() {
   const saved = readSaved()
-  const url = (process.env.TETHER_API_URL || saved?.url || DEFAULT_URL).replace(/\/$/, '')
+  const url = (process.env.TETHER_API_URL || saved?.url || '').replace(/\/$/, '')
   let token = process.env.TETHER_API_TOKEN || saved?.token || ''
   const authEnv = process.env.TETHER_API_AUTH
   if (!token && authEnv) token = authEnv.replace(/^Bearer\s+/i, '').trim()
