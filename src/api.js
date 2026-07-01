@@ -21,7 +21,14 @@ export function createApiClient({ url, token, project }, fetchImpl = fetch) {
   async function jsonOrThrow(r, ctx) {
     if (!r.ok) {
       const t = await r.text().catch(() => '')
-      const detail = t ? ': ' + t.slice(0, 200) : ''
+      let msg = t
+      try {
+        const j = JSON.parse(t)
+        if (j && typeof j.error === 'string') msg = j.error
+      } catch {
+        /* corpo nao-JSON: usa o texto cru mesmo */
+      }
+      const detail = msg ? ': ' + msg.slice(0, 200) : ''
       throw new Error(`${ctx} -> HTTP ${r.status}${detail}`)
     }
     return r.json()

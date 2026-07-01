@@ -3,6 +3,25 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { createApiClient } from './api.js'
 
+// Espelha tether/src/core/schema.ts (fonte de verdade dos valores validos). Repo standalone,
+// nao importa o core do tether - se o core mudar os valores, atualizar aqui tambem.
+const ItemType = z.enum(['feature', 'bug', 'chore', 'idea', 'question'])
+const ItemStatus = z.enum(['backlog', 'todo', 'in_progress', 'blocked', 'done', 'dropped'])
+const Priority = z.enum(['low', 'med', 'high'])
+const Ref = z.object({ kind: z.enum(['commit', 'pr', 'file', 'item']), value: z.string().min(1) })
+const ItemPatch = z.object({
+  title: z.string().min(1).optional(),
+  body: z.string().optional(),
+  type: ItemType.optional(),
+  status: ItemStatus.optional(),
+  priority: Priority.optional(),
+  tags: z.array(z.string()).optional(),
+  links: z.array(Ref).optional(),
+  blocked_by: z.array(z.string()).optional(),
+  start_date: z.string().nullable().optional(),
+  due_date: z.string().nullable().optional(),
+})
+
 function ok(data) {
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
 }
@@ -28,8 +47,8 @@ export async function runServer(config) {
       description: 'Lista itens do tracker. Use no inicio para ver pontas abertas antes de agir.' + scoped,
       inputSchema: {
         project: z.string().optional(),
-        status: z.string().optional(),
-        type: z.string().optional(),
+        status: ItemStatus.optional(),
+        type: ItemType.optional(),
         tag: z.string().optional(),
       },
     },
@@ -65,9 +84,9 @@ export async function runServer(config) {
         project: z.string().optional(),
         title: z.string(),
         body: z.string().optional(),
-        type: z.string().optional(),
-        status: z.string().optional(),
-        priority: z.string().optional(),
+        type: ItemType.optional(),
+        status: ItemStatus.optional(),
+        priority: Priority.optional(),
       },
     },
     async (args) => {
@@ -83,7 +102,7 @@ export async function runServer(config) {
     'update_item',
     {
       description: 'Atualiza um item (status, notas, links). Chame ao concluir ou avancar trabalho.',
-      inputSchema: { id: z.string(), patch: z.record(z.string(), z.unknown()) },
+      inputSchema: { id: z.string(), patch: ItemPatch },
     },
     async (args) => {
       try {
