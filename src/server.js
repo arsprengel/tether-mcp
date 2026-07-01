@@ -87,6 +87,8 @@ export async function runServer(config) {
         type: ItemType.optional(),
         status: ItemStatus.optional(),
         priority: Priority.optional(),
+        links: z.array(Ref).optional(),
+        blocked_by: z.array(z.string()).optional(),
       },
     },
     async (args) => {
