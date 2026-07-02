@@ -116,6 +116,21 @@ export async function runServer(config) {
   )
 
   server.registerTool(
+    'move_item',
+    {
+      description: 'Reordena um item na lista do seu projeto (index 0-based; 0 = topo, um numero grande = fim). Use para controlar a ordem/cronologia dos itens.',
+      inputSchema: { id: z.string(), index: z.number().int().min(0) },
+    },
+    async (args) => {
+      try {
+        return ok(await api.moveItem(args.id, args.index))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
     'get_next',
     {
       description: 'Retorna o proximo item aberto de maior prioridade. Chame quando precisar decidir o que atacar a seguir.' + scoped,

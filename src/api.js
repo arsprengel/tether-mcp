@@ -58,6 +58,9 @@ export function createApiClient({ url, token, project }, fetchImpl = fetch) {
     async updateItem(id, patch = {}) {
       return jsonOrThrow(await req('PATCH', `/api/items/${id}`, patch), 'update_item')
     },
+    async moveItem(id, index, filter = {}) {
+      return jsonOrThrow(await req('POST', `/api/items/${id}/move` + qs(filter), { index }), 'move_item')
+    },
     async getNext(filter = {}) {
       return jsonOrThrow(await req('GET', '/api/next' + qs(filter)), 'get_next')
     },
