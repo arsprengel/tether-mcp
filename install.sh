@@ -26,5 +26,16 @@ fi
 echo "==> conectando esta maquina ao Tether (abre o navegador; autorize logado)"
 TETHER_API_URL="$URL" node "$DIR/bin.js" login
 
+if [ "$1" = "--no-hooks" ] || [ "$2" = "--no-hooks" ]; then
+  echo "(hooks de sessao pulados; registre depois com: node $DIR/bin.js hooks install)"
+else
+  printf "==> registrar hooks de sessao do Claude (tracker + MRP automaticos ao abrir, lembrete ao fechar)? [S/n] "
+  read -r RESP || RESP=""
+  case "$RESP" in
+    n|N) echo "(pulado; registre depois com: node $DIR/bin.js hooks install)" ;;
+    *) node "$DIR/bin.js" hooks install ;;
+  esac
+fi
+
 echo ""
 echo "Pronto. Abra o Claude em qualquer projeto e peca: \"lista as pendencias do tether\"."

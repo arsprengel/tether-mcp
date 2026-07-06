@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { resolveConfig, clearSaved, readSaved } from './src/config.js'
 import { runServer } from './src/server.js'
 import { runLogin } from './src/login.js'
+import { runHook } from './src/hook.js'
+import { installHooks, uninstallHooks, settingsPath } from './src/hooks-install.js'
 
 const cmd = process.argv[2]
 
@@ -59,6 +61,49 @@ async function main() {
     process.stdout.write(`token:   ${cfg.token ? 'presente' : 'AUSENTE (rode: tether-mcp login)'}\n`)
     return
   }
+  if (cmd === 'hook') {
+    // Chamado pelo Claude Code (SessionStart/Stop). Nunca pode derrubar a sessao:
+    // qualquer erro inesperado vira exit 0 silencioso; o unico exit 2 e o reconcile.
+    const sub = process.argv[3]
+    let input = {}
+    try {
+      const chunks = []
+      for await (const c of process.stdin) chunks.push(c)
+      const raw = Buffer.concat(chunks).toString('utf8').trim()
+      if (raw) {
+        const v = JSON.parse(raw)
+        if (typeof v === 'object' && v !== null && !Array.isArray(v)) input = v
+      }
+    } catch {
+      /* stdin ruim: segue com input vazio */
+    }
+    const outcome = await runHook(sub, input).catch(() => ({ exitCode: 0 }))
+    const payload = outcome.stdout ?? outcome.stderr
+    if (payload) {
+      const stream = outcome.stdout ? process.stdout : process.stderr
+      stream.write(payload, () => process.exit(outcome.exitCode))
+    } else {
+      process.exit(outcome.exitCode)
+    }
+    return
+  }
+  if (cmd === 'hooks') {
+    const sub = process.argv[3]
+    if (sub === 'install' || sub === 'uninstall') {
+      try {
+        const results = sub === 'install' ? installHooks() : uninstallHooks()
+        process.stdout.write(results.map((r) => `  ${r}`).join('\n') + '\n')
+        process.stdout.write(`(arquivo: ${settingsPath()}; backup .tether-bak ao lado)\n`)
+        if (sub === 'install') process.stdout.write('Reinicie as sessoes do Claude para valer.\n')
+      } catch (e) {
+        process.stderr.write(`hooks ${sub} falhou (settings.json intacto): ${e instanceof Error ? e.message : String(e)}\n`)
+        process.exit(1)
+      }
+      return
+    }
+    process.stderr.write('uso: tether-mcp hooks <install|uninstall>\n')
+    process.exit(1)
+  }
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     process.stdout.write(
       [
@@ -69,6 +114,8 @@ async function main() {
         '  tether-mcp login      conecta esta maquina ao Tether (login pelo site)',
         '  tether-mcp logout     apaga o token salvo',
         '  tether-mcp status     mostra url, projeto e se ha token',
+        '  tether-mcp hooks install|uninstall   registra/remove os hooks de sessao do Claude',
+        '                        (tracker + MRP automaticos no inicio, lembrete no stop)',
         '',
         'Env: TETHER_API_URL (endereco do Tether; obrigatorio no 1o login, o admin te passa),',
         '     TETHER_PROJECT (default = nome da pasta atual).',

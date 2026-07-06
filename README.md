@@ -59,6 +59,15 @@ o conhecimento duravel do projeto (comandos, deploy, gotchas, decisoes, contexto
 entre todos os participantes. A IA consulta ao comecar a trabalhar e registra o que descobre;
 no dashboard e a aba "Referencia".
 
+## Hooks de sessao (v1.3.0+, recomendado)
+
+`node <pasta>/bin.js hooks install` registra no seu `~/.claude/settings.json` (com backup e sem
+duplicar) dois hooks: ao ABRIR uma sessao do Claude num projeto com tracker, os itens abertos e
+a MRP entram automaticos no contexto (a IA nasce sabendo, sem depender de chamar tool); ao
+FECHAR, um lembrete cobra reconciliar item in_progress e registrar descobertas na MRP. Sempre
+fail-silent: sem login/rede o hook sai quieto e nada quebra. `hooks uninstall` desfaz.
+O install.sh ja oferece esse registro no final.
+
 ## Atualizar (pegar tools novas)
 
 A partir da **v1.2.0** o cliente instalado por clone se atualiza SOZINHO: ao subir, dispara um
