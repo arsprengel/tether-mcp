@@ -52,4 +52,15 @@ mexer em outro projeto, a IA passa `project` explicito na tool.
 
 ## Tools expostas
 
-`list_items`, `get_item`, `add_item`, `update_item`, `get_next`, `delete_item`.
+Itens: `list_items`, `get_item`, `add_item`, `update_item`, `move_item`, `get_next`, `delete_item`.
+
+MRP (Memoria Referencial de Projeto, v1.1.0+): `list_memory`, `add_memory`, `update_memory` -
+o conhecimento duravel do projeto (comandos, deploy, gotchas, decisoes, contexto), compartilhado
+entre todos os participantes. A IA consulta ao comecar a trabalhar e registra o que descobre;
+no dashboard e a aba "Referencia".
+
+## Atualizar (pegar tools novas)
+
+Se instalou pelo clone + `install.sh`: entre na pasta do clone, `git pull` e reinicie as sessoes
+do Claude. Se instalou via `npx github:...`: limpe o cache do npx (`rm -rf ~/.npm/_npx`) ou rode
+`npx -y github:arsprengel/tether-mcp@latest status` uma vez, e reinicie as sessoes.

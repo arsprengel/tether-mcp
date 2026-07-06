@@ -1,6 +1,6 @@
 {
   "name": "tether-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP do Tether - conecta o Claude ao tracker de roadmap da sua equipe (login pelo site, sem copiar token).",
   "type": "module",
   "bin": {

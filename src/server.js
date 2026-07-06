@@ -21,6 +21,13 @@ const ItemPatch = z.object({
   start_date: z.string().nullable().optional(),
   due_date: z.string().nullable().optional(),
 })
+const MemoryCategory = z.enum(['command', 'deploy', 'gotcha', 'decision', 'context'])
+const MemoryPatch = z.object({
+  category: MemoryCategory.optional(),
+  title: z.string().min(1).optional(),
+  body: z.string().min(1).optional(),
+  archived: z.boolean().optional(),
+})
 
 function ok(data) {
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
@@ -38,7 +45,19 @@ export async function runServer(config) {
     )
   }
   const api = createApiClient(config)
-  const server = new McpServer({ name: 'tether', version: '1.0.0' })
+  const server = new McpServer(
+    { name: 'tether', version: '1.1.0' },
+    {
+      instructions:
+        'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
+        'Ao COMECAR a trabalhar num projeto, chame list_memory e siga o que estiver la ' +
+        '(comandos, deploy, gotchas, decisoes, contexto). ' +
+        'Ao descobrir algo duravel do projeto, registre com add_memory (cheque list_memory antes ' +
+        'para nao duplicar); corrija ou aposente entradas velhas com update_memory. ' +
+        'Itens de trabalho: list_items/get_next para ver pontas abertas, add_item ao descobrir ' +
+        'trabalho novo, update_item ao avancar ou concluir.',
+    },
+  )
   const scoped = ` Default: projeto "${config.project}" (a pasta aberta); passe project so para outro.`
 
   server.registerTool(
@@ -155,6 +174,59 @@ export async function runServer(config) {
       try {
         const deleted = await api.deleteItem(args.id)
         return ok({ deleted, id: args.id })
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'list_memory',
+    {
+      description: 'Le a MRP (Memoria Referencial de Projeto): comandos, deploy, gotchas, decisoes e contexto duraveis do projeto. Chame ao comecar a trabalhar e SIGA o que estiver la.' + scoped,
+      inputSchema: {
+        project: z.string().optional(),
+        category: MemoryCategory.optional(),
+      },
+    },
+    async (args) => {
+      try {
+        return ok(await api.listMemory(args))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'add_memory',
+    {
+      description: 'Registra uma descoberta duravel na MRP do projeto (comando, deploy, gotcha, decisao, contexto). Cheque list_memory antes para nao duplicar.' + scoped,
+      inputSchema: {
+        project: z.string().optional(),
+        category: MemoryCategory,
+        title: z.string(),
+        body: z.string(),
+      },
+    },
+    async (args) => {
+      try {
+        return ok(await api.addMemory(args))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'update_memory',
+    {
+      description: 'Corrige uma entrada da MRP ou aposenta com patch {archived: true}. Prefira aposentar a apagar.',
+      inputSchema: { id: z.string(), patch: MemoryPatch },
+    },
+    async (args) => {
+      try {
+        return ok(await api.updateMemory(args.id, args.patch))
       } catch (e) {
         return fail(e)
       }

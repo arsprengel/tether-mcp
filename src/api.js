@@ -70,5 +70,22 @@ export function createApiClient({ url, token, project }, fetchImpl = fetch) {
       await jsonOrThrow(r, 'delete_item')
       return true
     },
+    // MRP (Memoria Referencial de Projeto): conhecimento duravel por projeto (comandos,
+    // deploy, gotchas, decisoes, contexto). Mesmos endpoints /api/memory do dashboard.
+    async listMemory(filter = {}) {
+      const f = { project, ...filter }
+      const p = new URLSearchParams()
+      for (const k of ['project', 'category']) if (f[k]) p.set(k, String(f[k]))
+      if (f.include_archived) p.set('include_archived', '1')
+      const s = p.toString()
+      return jsonOrThrow(await req('GET', '/api/memory' + (s ? '?' + s : '')), 'list_memory')
+    },
+    async addMemory(input = {}) {
+      const body = { project, ...input } // project da pasta; input.project (se houver) sobrescreve
+      return jsonOrThrow(await req('POST', '/api/memory', body), 'add_memory')
+    },
+    async updateMemory(id, patch = {}) {
+      return jsonOrThrow(await req('PATCH', `/api/memory/${id}`, patch), 'update_memory')
+    },
   }
 }
