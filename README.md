@@ -61,6 +61,10 @@ no dashboard e a aba "Referencia".
 
 ## Atualizar (pegar tools novas)
 
-Se instalou pelo clone + `install.sh`: entre na pasta do clone, `git pull` e reinicie as sessoes
-do Claude. Se instalou via `npx github:...`: limpe o cache do npx (`rm -rf ~/.npm/_npx`) ou rode
-`npx -y github:arsprengel/tether-mcp@latest status` uma vez, e reinicie as sessoes.
+A partir da **v1.2.0** o cliente instalado por clone se atualiza SOZINHO: ao subir, dispara um
+`git pull` silencioso em background (no maximo a cada 6h) - a sessao atual segue como esta e a
+PROXIMA ja sobe na versao nova. Sem rede ou com conflito local, nada acontece (fail-silent).
+
+Se a sua instalacao e anterior a v1.2.0, atualize UMA ultima vez na mao: entre na pasta do
+clone, `git pull` e reinicie as sessoes do Claude. Se instalou via `npx github:...`: limpe o
+cache do npx (`rm -rf ~/.npm/_npx`) e reinicie (via npx nao ha auto-update; prefira o clone).

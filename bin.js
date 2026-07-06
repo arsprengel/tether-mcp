@@ -1,9 +1,39 @@
 #!/usr/bin/env node
+import { spawn } from 'node:child_process'
+import { existsSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { resolveConfig, clearSaved, readSaved } from './src/config.js'
 import { runServer } from './src/server.js'
 import { runLogin } from './src/login.js'
 
 const cmd = process.argv[2]
+
+const DIR = dirname(fileURLToPath(import.meta.url))
+const UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000
+
+// Auto-atualizacao "na proxima inicializacao": quando instalado por clone (tem .git),
+// dispara um git pull ff-only DESANEXADO em background, no maximo a cada 6h. A sessao
+// atual segue com a versao ja carregada; a proxima ja sobe atualizada - ninguem precisa
+// rodar git pull na mao. Fail-silent por construcao: sem rede, com conflito, sem git ou
+// instalado via npx (sem .git), nada acontece e o server sobe normal.
+function maybeSelfUpdate() {
+  try {
+    if (process.platform === 'win32') return
+    if (!existsSync(join(DIR, '.git'))) return
+    const stamp = join(DIR, '.last-pull')
+    try {
+      if (Date.now() - statSync(stamp).mtimeMs < UPDATE_INTERVAL_MS) return
+    } catch {
+      /* sem stamp ainda: primeira vez, segue */
+    }
+    writeFileSync(stamp, String(Date.now()))
+    const sh = `git -C "${DIR}" pull --ff-only --quiet && npm --prefix "${DIR}" install --omit=dev --silent`
+    spawn('sh', ['-c', sh], { detached: true, stdio: 'ignore' }).unref()
+  } catch {
+    /* atualizacao nunca pode atrapalhar o server */
+  }
+}
 
 async function main() {
   if (cmd === 'login') {
@@ -48,6 +78,7 @@ async function main() {
     return
   }
   // default (sem argumento): MCP server stdio
+  maybeSelfUpdate()
   await runServer(resolveConfig())
 }
 
