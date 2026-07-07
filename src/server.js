@@ -28,6 +28,7 @@ const MemoryPatch = z.object({
   body: z.string().min(1).optional(),
   archived: z.boolean().optional(),
 })
+const ReminderStatus = z.enum(['pending', 'done', 'dismissed'])
 
 function ok(data) {
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
@@ -46,7 +47,7 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.3.2' },
+    { name: 'tether', version: '1.4.0' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
@@ -55,7 +56,9 @@ export async function runServer(config) {
         'Ao descobrir algo duravel do projeto, registre com add_memory (cheque list_memory antes ' +
         'para nao duplicar); corrija ou aposente entradas velhas com update_memory. ' +
         'Itens de trabalho: list_items/get_next para ver pontas abertas, add_item ao descobrir ' +
-        'trabalho novo, update_item ao avancar ou concluir.',
+        'trabalho novo, update_item ao avancar ou concluir. ' +
+        'Lembretes: se prometer avisar algo numa data futura, registre com add_reminder (o Tether ' +
+        'guarda e mostra no dashboard, ja que a sessao nao fica aberta pra lembrar); list_reminders ve os pendentes.',
     },
   )
   const scoped = ` Default: projeto "${config.project}" (a pasta aberta); passe project so para outro.`
@@ -231,6 +234,47 @@ export async function runServer(config) {
     async (args) => {
       try {
         return ok(await api.updateMemory(args.id, args.patch))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'add_reminder',
+    {
+      description:
+        'Registra um lembrete/agendamento no Tether. Chame SEMPRE que prometer avisar algo no futuro ' +
+        '("quando chegar o dia X eu te lembro") ou combinar de retomar algo numa data - a sessao nao ' +
+        'fica aberta pra lembrar sozinha; o Tether guarda e mostra no dashboard (aba Lembretes).' + scoped,
+      inputSchema: {
+        project: z.string().optional(),
+        message: z.string(),
+        remind_at: z.string().describe('data/hora do lembrete em ISO 8601 (ex: 2026-08-01 ou 2026-08-01T09:00:00Z)'),
+        item_id: z.string().optional().describe('id de um item do tracker a vincular (opcional)'),
+      },
+    },
+    async (args) => {
+      try {
+        return ok(await api.addReminder(args))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'list_reminders',
+    {
+      description: 'Lista os lembretes/agendamentos do projeto (pendentes por padrao; ordenados por data). Chame pra conferir o que ja foi agendado.' + scoped,
+      inputSchema: {
+        project: z.string().optional(),
+        status: ReminderStatus.optional(),
+      },
+    },
+    async (args) => {
+      try {
+        return ok(await api.listReminders(args))
       } catch (e) {
         return fail(e)
       }

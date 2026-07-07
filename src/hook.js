@@ -34,10 +34,18 @@ export const IDEA_CONVENTION =
   'Primeiro clarifique o escopo com o usuario e apresente um plano para aprovacao (plan mode) antes de ' +
   'implementar. Itens feature/chore/bug ja detalhados podem ir direto.'
 
+// Convencao do item #12: a sessao nao fica aberta pra "lembrar sozinha" numa data futura. Se a IA
+// prometer avisar algo, ela grava AGORA no Tether (add_reminder), que guarda e mostra no dashboard.
+export const REMINDER_CONVENTION =
+  'Lembretes: se voce prometer avisar algo no futuro ("quando chegar o dia X eu te lembro") ou ' +
+  'combinar de retomar algo numa data, registre AGORA via add_reminder (message + remind_at ISO) - ' +
+  'a sessao nao fica aberta pra lembrar sozinha; o Tether guarda e mostra na aba Lembretes.'
+
 export function formatContext(open) {
   const body = open.map(line).join('\n')
   const base = `Tracker Tether deste projeto - ${open.length} item(ns) aberto(s):\n${body}\n\nConsulte/atualize via as tools do MCP tether (list_items, get_item, update_item, get_next) conforme avancar.`
-  return open.some((i) => i.type === 'idea') ? `${base}\n\n${IDEA_CONVENTION}` : base
+  const withIdea = open.some((i) => i.type === 'idea') ? `${base}\n\n${IDEA_CONVENTION}` : base
+  return `${withIdea}\n\n${REMINDER_CONVENTION}`
 }
 
 export function formatReconcile(inProgress) {

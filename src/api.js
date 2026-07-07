@@ -87,5 +87,18 @@ export function createApiClient({ url, token, project }, fetchImpl = fetch) {
     async updateMemory(id, patch = {}) {
       return jsonOrThrow(await req('PATCH', `/api/memory/${id}`, patch), 'update_memory')
     },
+    // Lembretes/Agendamentos (item #12): "me lembra no dia X de Y". Mesmos endpoints
+    // /api/reminders do dashboard. O disparo (e-mail/SMS) e fase futura; por ora o Tether guarda.
+    async listReminders(filter = {}) {
+      const f = { project, ...filter }
+      const p = new URLSearchParams()
+      for (const k of ['project', 'status']) if (f[k]) p.set(k, String(f[k]))
+      const s = p.toString()
+      return jsonOrThrow(await req('GET', '/api/reminders' + (s ? '?' + s : '')), 'list_reminders')
+    },
+    async addReminder(input = {}) {
+      const body = { project, ...input } // project da pasta; input.project (se houver) sobrescreve
+      return jsonOrThrow(await req('POST', '/api/reminders', body), 'add_reminder')
+    },
   }
 }
