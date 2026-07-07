@@ -46,7 +46,7 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.3.1' },
+    { name: 'tether', version: '1.3.2' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
@@ -59,6 +59,10 @@ export async function runServer(config) {
     },
   )
   const scoped = ` Default: projeto "${config.project}" (a pasta aberta); passe project so para outro.`
+  // Convencao do item #11: reforca a regra de idea no momento em que a IA puxa um item.
+  const ideaHint =
+    ' Se o item for type=idea (captura crua), clarifique o escopo com o usuario e entre em plan mode ' +
+    '(plano para aprovar) antes de codar; feature/chore/bug detalhados podem ir direto.'
 
   server.registerTool(
     'list_items',
@@ -83,7 +87,7 @@ export async function runServer(config) {
   server.registerTool(
     'get_item',
     {
-      description: 'Detalhe completo de um item por id. Chame antes de agir sobre um item para ver o estado atual.',
+      description: 'Detalhe completo de um item por id. Chame antes de agir sobre um item para ver o estado atual.' + ideaHint,
       inputSchema: { id: z.string() },
     },
     async (args) => {
@@ -152,7 +156,7 @@ export async function runServer(config) {
   server.registerTool(
     'get_next',
     {
-      description: 'Retorna o proximo item aberto de maior prioridade. Chame quando precisar decidir o que atacar a seguir.' + scoped,
+      description: 'Retorna o proximo item aberto de maior prioridade. Chame quando precisar decidir o que atacar a seguir.' + scoped + ideaHint,
       inputSchema: { project: z.string().optional() },
     },
     async (args) => {

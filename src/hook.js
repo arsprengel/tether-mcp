@@ -27,9 +27,17 @@ function line(i) {
   return `- ${n}[${i.type}/${i.status}/${i.priority}] ${i.title} (${i.id})`
 }
 
+// Convencao do item #11: idea = captura crua. Ao atacar, a IA clarifica escopo + plan mode
+// antes de codar (feature/chore/bug ja detalhados vao direto). So aparece quando ha idea aberta.
+export const IDEA_CONVENTION =
+  'Convencao para itens type=idea (captura crua do usuario): ao atacar uma idea, NAO saia codando. ' +
+  'Primeiro clarifique o escopo com o usuario e apresente um plano para aprovacao (plan mode) antes de ' +
+  'implementar. Itens feature/chore/bug ja detalhados podem ir direto.'
+
 export function formatContext(open) {
   const body = open.map(line).join('\n')
-  return `Tracker Tether deste projeto - ${open.length} item(ns) aberto(s):\n${body}\n\nConsulte/atualize via as tools do MCP tether (list_items, get_item, update_item, get_next) conforme avancar.`
+  const base = `Tracker Tether deste projeto - ${open.length} item(ns) aberto(s):\n${body}\n\nConsulte/atualize via as tools do MCP tether (list_items, get_item, update_item, get_next) conforme avancar.`
+  return open.some((i) => i.type === 'idea') ? `${base}\n\n${IDEA_CONVENTION}` : base
 }
 
 export function formatReconcile(inProgress) {
