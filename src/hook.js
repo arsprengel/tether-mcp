@@ -20,7 +20,11 @@ export const MEMORY_REMINDER =
   'Descobriu gotcha/comando/decisao duravel do projeto nesta sessao? Registre na MRP via add_memory (cheque list_memory antes; aposente entradas velhas com update_memory).'
 
 function line(i) {
-  return `- [${i.type}/${i.status}/${i.priority}] ${i.title} (${i.id})`
+  // #N = "ponto N" (numero 1-based na ordem natural do projeto), o MESMO que a UI mostra e que
+  // humanos/commits usam - pra IA nao traduzir via position (0-based, com gaps) e pegar o item
+  // errado. Vem do payload da API (/api/items). Omite o #N se faltar (nao imprime "#undefined").
+  const n = i.number != null ? `#${i.number} ` : ''
+  return `- ${n}[${i.type}/${i.status}/${i.priority}] ${i.title} (${i.id})`
 }
 
 export function formatContext(open) {
