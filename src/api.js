@@ -100,5 +100,25 @@ export function createApiClient({ url, token, project }, fetchImpl = fetch) {
       const body = { project, ...input } // project da pasta; input.project (se houver) sobrescreve
       return jsonOrThrow(await req('POST', '/api/reminders', body), 'add_reminder')
     },
+    // Anexos (#72): mesmos endpoints do dashboard. addAttachment manda o arquivo em base64 no
+    // corpo JSON (a rota tambem aceita multipart, mas o MCP nao tem File - so base64).
+    async addAttachment(itemId, input = {}) {
+      return jsonOrThrow(await req('POST', `/api/items/${itemId}/attachments`, input), 'add_attachment')
+    },
+    async getAttachment(id) {
+      const r = await req('GET', `/api/attachments/${id}`)
+      if (r.status === 404) return null
+      return jsonOrThrow(r, 'get_attachment')
+    },
+    // Bytes crus (usado so quando o metadado pede - imagem pequena sem texto extraido).
+    async downloadAttachment(id) {
+      const r = await req('GET', `/api/attachments/${id}/download`)
+      if (r.status === 404) return null
+      if (!r.ok) {
+        const t = await r.text().catch(() => '')
+        throw new Error(`get_attachment -> HTTP ${r.status}${t ? ': ' + t.slice(0, 200) : ''}`)
+      }
+      return new Uint8Array(await r.arrayBuffer())
+    },
   }
 }

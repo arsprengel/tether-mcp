@@ -47,7 +47,7 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.4.0' },
+    { name: 'tether', version: '1.5.0' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
@@ -275,6 +275,52 @@ export async function runServer(config) {
     async (args) => {
       try {
         return ok(await api.listReminders(args))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'add_attachment',
+    {
+      description: 'Anexa um arquivo (base64) a um card do tracker. Use pra guardar spec, doc ou planilha relevante ao card. Nasce INTERNO (so o time ve); passe shared_with_client=true pra o cliente do portal poder baixar.' + scoped,
+      inputSchema: {
+        item_id: z.string(),
+        project: z.string().optional(),
+        filename: z.string(),
+        content_base64: z.string().describe('conteudo do arquivo em base64'),
+        description: z.string().optional().describe('resumo curto do anexo (a IA le isso na lista, barato)'),
+        shared_with_client: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      try {
+        const { item_id, ...input } = args
+        return ok(await api.addAttachment(item_id, input))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'get_attachment',
+    {
+      description: 'Le o CONTEUDO de um anexo sob demanda (texto extraido pra txt/csv; base64 pra imagem pequena). Nao chame a toa - a lista de anexos ja vem no get_item com nome e descricao.',
+      inputSchema: { id: z.string() },
+    },
+    async (args) => {
+      try {
+        const meta = await api.getAttachment(args.id)
+        if (!meta) return fail(new Error('anexo nao encontrado'))
+        if (meta.extracted_text) return ok({ ...meta, text: meta.extracted_text })
+        if (meta.content_type.startsWith('image/') && meta.size_bytes < 1_500_000) {
+          const bytes = await api.downloadAttachment(args.id)
+          if (!bytes) return fail(new Error('anexo nao encontrado'))
+          return ok({ ...meta, content_base64: Buffer.from(bytes).toString('base64') })
+        }
+        return ok({ ...meta, note: 'sem texto extraido; baixe pelo dashboard para processar' })
       } catch (e) {
         return fail(e)
       }
