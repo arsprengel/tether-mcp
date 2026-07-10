@@ -1,5 +1,6 @@
 import { basename } from 'node:path'
 import { resolveConfig } from './config.js'
+import { findTetherProject } from './tether-file.js'
 
 // Hooks de sessao do Claude Code falando com a API do Tether (mesmo desenho dos hooks do
 // repo principal, portado pro cliente standalone): "context" injeta itens abertos + MRP no
@@ -99,7 +100,8 @@ async function fetchJson(url, token, fetchImpl = fetch) {
 export async function runHook(command, input = {}, fetchImpl = fetch) {
   const cfg = resolveConfig()
   if (!cfg.url || !cfg.token) return { exitCode: 0 }
-  const project = process.env.TETHER_PROJECT || basename(input.cwd ?? process.cwd())
+  const cwd = input.cwd ?? process.cwd()
+  const project = process.env.TETHER_PROJECT || findTetherProject(cwd) || basename(cwd)
   const q = '?project=' + encodeURIComponent(project)
 
   if (command === 'context') {

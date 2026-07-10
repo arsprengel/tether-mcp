@@ -1,6 +1,7 @@
 import { homedir } from 'node:os'
 import { join, basename } from 'node:path'
 import { mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync } from 'node:fs'
+import { findTetherProject } from './tether-file.js'
 
 // Sem endereco embutido de proposito: este repo e publico, mas o endereco do Tether e a conta
 // sao privados da equipe. A URL vem do admin (env TETHER_API_URL no 1o login) e fica salva
@@ -52,6 +53,6 @@ export function resolveConfig() {
   let token = process.env.TETHER_API_TOKEN || saved?.token || ''
   const authEnv = process.env.TETHER_API_AUTH
   if (!token && authEnv) token = authEnv.replace(/^Bearer\s+/i, '').trim()
-  const project = process.env.TETHER_PROJECT || basename(process.cwd())
+  const project = process.env.TETHER_PROJECT || findTetherProject(process.cwd()) || basename(process.cwd())
   return { url, token, project }
 }
