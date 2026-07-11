@@ -47,15 +47,17 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.6.1' },
+    { name: 'tether', version: '1.6.2' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
         'Ao COMECAR a trabalhar num projeto, chame list_memory e siga o que estiver la ' +
         '(comandos, deploy, gotchas, decisoes, contexto). ' +
-        'Ao descobrir conhecimento duravel de REFERENCIA (gotcha, decisao, comando, deploy), registre ' +
-        'com add_memory (cheque list_memory antes; TRABALHO-A-FAZER nao vai pra MRP, vira item do tracker ' +
-        'via add_item); corrija ou aposente entradas velhas com update_memory. ' +
+        'Ao descobrir um GOTCHA/decisao/comando/deploy nao-obvio e duravel, registre com add_memory - ' +
+        'REGUA ALTA: so o que POUPA TEMPO futuro e NAO esta a vista no codigo; na duvida nao registre; ' +
+        'grave o PORQUE, nao duplique SQL/estrutura/passo-a-passo. Cheque list_memory antes. ' +
+        'TRABALHO-A-FAZER nao vai pra MRP, vira item do tracker (add_item); corte deliberado = ponteiro pro item. ' +
+        'Corrija ou aposente entradas velhas com update_memory. ' +
         'Itens de trabalho: list_items/get_next para ver pontas abertas, add_item ao descobrir ' +
         'trabalho novo, update_item ao avancar ou concluir. ' +
         'Lembretes: se prometer avisar algo numa data futura, registre com add_reminder (o Tether ' +
@@ -209,7 +211,7 @@ export async function runServer(config) {
   server.registerTool(
     'add_memory',
     {
-      description: 'Registra conhecimento duravel de REFERENCIA na MRP do projeto (comando, deploy, gotcha, decisao, contexto) - o que um agente precisa LER pra nao redescobrir. NAO registre trabalho-a-fazer/follow-up/backlog aqui: isso e item do tracker (use add_item). Corte deliberado vira referencia com ponteiro pro item ("out-of-scope, ver #86"), nao TODO. Cheque list_memory antes para nao duplicar.' + scoped,
+      description: 'Registra conhecimento duravel de REFERENCIA na MRP do projeto (comando, deploy, gotcha, decisao, contexto) - o que um agente precisa LER pra nao redescobrir. REGUA ALTA (de gotcha, nao de documentacao): so registre se (1) alguem perderia tempo/bateria a cabeca SEM essa nota, (2) e nao-obvio - NAO esta a vista lendo o codigo, e (3) continua verdade depois; na duvida, NAO registre. Grave so o PORQUE nao-obvio + a implicacao de futuro; NAO duplique SQL, constantes, estrutura de tabela nem passo-a-passo (isso vive no codigo/commit - no maximo aponte pra la). NAO registre trabalho-a-fazer/follow-up/backlog: isso e item do tracker (use add_item). Corte deliberado vira referencia com ponteiro pro item ("out-of-scope, ver #86"), nao TODO. Cheque list_memory antes para nao duplicar.' + scoped,
       inputSchema: {
         project: z.string().optional(),
         category: MemoryCategory,
