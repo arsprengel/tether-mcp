@@ -47,14 +47,15 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.5.0' },
+    { name: 'tether', version: '1.6.1' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
         'Ao COMECAR a trabalhar num projeto, chame list_memory e siga o que estiver la ' +
         '(comandos, deploy, gotchas, decisoes, contexto). ' +
-        'Ao descobrir algo duravel do projeto, registre com add_memory (cheque list_memory antes ' +
-        'para nao duplicar); corrija ou aposente entradas velhas com update_memory. ' +
+        'Ao descobrir conhecimento duravel de REFERENCIA (gotcha, decisao, comando, deploy), registre ' +
+        'com add_memory (cheque list_memory antes; TRABALHO-A-FAZER nao vai pra MRP, vira item do tracker ' +
+        'via add_item); corrija ou aposente entradas velhas com update_memory. ' +
         'Itens de trabalho: list_items/get_next para ver pontas abertas, add_item ao descobrir ' +
         'trabalho novo, update_item ao avancar ou concluir. ' +
         'Lembretes: se prometer avisar algo numa data futura, registre com add_reminder (o Tether ' +
@@ -208,7 +209,7 @@ export async function runServer(config) {
   server.registerTool(
     'add_memory',
     {
-      description: 'Registra uma descoberta duravel na MRP do projeto (comando, deploy, gotcha, decisao, contexto). Cheque list_memory antes para nao duplicar.' + scoped,
+      description: 'Registra conhecimento duravel de REFERENCIA na MRP do projeto (comando, deploy, gotcha, decisao, contexto) - o que um agente precisa LER pra nao redescobrir. NAO registre trabalho-a-fazer/follow-up/backlog aqui: isso e item do tracker (use add_item). Corte deliberado vira referencia com ponteiro pro item ("out-of-scope, ver #86"), nao TODO. Cheque list_memory antes para nao duplicar.' + scoped,
       inputSchema: {
         project: z.string().optional(),
         category: MemoryCategory,
