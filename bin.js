@@ -7,6 +7,7 @@ import { resolveConfig, clearSaved, readSaved } from './src/config.js'
 import { runServer } from './src/server.js'
 import { runLogin } from './src/login.js'
 import { runHook } from './src/hook.js'
+import { healTetherIfRenamed } from './src/tether-heal.js'
 import { installHooks, uninstallHooks, settingsPath } from './src/hooks-install.js'
 
 const cmd = process.argv[2]
@@ -77,6 +78,8 @@ async function main() {
     } catch {
       /* stdin ruim: segue com input vazio */
     }
+    // Auto-heal do .tether ANTES de ler (pega renames; nunca derruba o hook).
+    if (sub === 'context') await healTetherIfRenamed(input.cwd ?? process.cwd())
     const outcome = await runHook(sub, input).catch(() => ({ exitCode: 0 }))
     const payload = outcome.stdout ?? outcome.stderr
     if (payload) {
@@ -126,6 +129,8 @@ async function main() {
   }
   // default (sem argumento): MCP server stdio
   maybeSelfUpdate()
+  // Auto-heal do .tether antes de resolver o projeto da sessao.
+  await healTetherIfRenamed()
   await runServer(resolveConfig())
 }
 
