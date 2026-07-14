@@ -80,6 +80,11 @@ export function createApiClient({ url, token, project }, fetchImpl = fetch) {
       const s = p.toString()
       return jsonOrThrow(await req('GET', '/api/memory' + (s ? '?' + s : '')), 'list_memory')
     },
+    async getMemory(id) {
+      const r = await req('GET', `/api/memory/${id}`)
+      if (r.status === 404) return null
+      return jsonOrThrow(r, 'get_memory')
+    },
     async addMemory(input = {}) {
       const body = { project, ...input } // project da pasta; input.project (se houver) sobrescreve
       return jsonOrThrow(await req('POST', '/api/memory', body), 'add_memory')

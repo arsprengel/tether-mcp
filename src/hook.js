@@ -65,7 +65,7 @@ export function formatMemory(entries) {
   const totalChars = active.reduce((n, e) => n + e.body.length, 0)
   const compact = active.length > 30 || totalChars > 8000
   const lines = [
-    `MRP (Memoria Referencial de Projeto) - ${active.length} entrada(s)${compact ? ' [resumo: so titulos; chame list_memory para o conteudo]' : ''}:`,
+    `MRP (Memoria Referencial de Projeto) - ${active.length} entrada(s)${compact ? ' [so titulos; list_memory da o indice com ids, get_memory(id) le uma entrada, list_memory({category,detail:"full"}) le uma categoria]' : ''}:`,
   ]
   for (const cat of CATEGORY_ORDER) {
     const group = active.filter((e) => e.category === cat)

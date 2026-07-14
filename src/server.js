@@ -47,12 +47,14 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.6.3' },
+    { name: 'tether', version: '1.7.0' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
-        'Ao COMECAR a trabalhar num projeto, chame list_memory e siga o que estiver la ' +
-        '(comandos, deploy, gotchas, decisoes, contexto). ' +
+        'Os TITULOS da MRP ja vem no inicio da sessao - leia-os e SIGA o que estiver la. ' +
+        'Para o CONTEUDO de uma entrada, leia sob demanda (nao puxe a MRP toda a toa): ' +
+        'list_memory da o indice barato (ids+titulos), get_memory(id) abre UMA entrada, ' +
+        'list_memory({category, detail:"full"}) le uma categoria inteira antes de operar nela. ' +
         'Ao descobrir um GOTCHA/decisao/comando/deploy nao-obvio e duravel, registre com add_memory - ' +
         'REGUA ALTA: so o que POUPA TEMPO futuro e NAO esta a vista no codigo; na duvida nao registre; ' +
         'grave o PORQUE, nao duplique SQL/estrutura/passo-a-passo. Cheque list_memory antes. ' +
@@ -193,15 +195,37 @@ export async function runServer(config) {
   server.registerTool(
     'list_memory',
     {
-      description: 'Le a MRP (Memoria Referencial de Projeto): comandos, deploy, gotchas, decisoes e contexto duraveis do projeto. Chame ao comecar a trabalhar e SIGA o que estiver la.' + scoped,
+      description: 'Le a MRP (Memoria Referencial de Projeto): comandos, deploy, gotchas, decisoes e contexto duraveis do projeto. Os TITULOS de todas as entradas ja vem no inicio da sessao. Por padrao devolve so o INDICE (id, categoria, titulo) - barato; use pra pegar os ids das entradas que interessam. Para o CONTEUDO: get_memory(id) le UMA entrada; list_memory({category, detail:"full"}) le os bodies de UMA categoria; detail:"full" sem category le TUDO (caro) - so quando precisar de varios bodies. SIGA o que estiver na MRP.' + scoped,
       inputSchema: {
         project: z.string().optional(),
         category: MemoryCategory.optional(),
+        detail: z.enum(['index', 'full']).optional().describe('index (padrao): so id/categoria/titulo. full: bodies completos (combine com category pra escopar).'),
       },
+    },
+    // #93: default = INDICE (so id/category/title, ~1.5K tok em vez de ~18.5K de bodies). O body
+    // vem sob demanda (get_memory ou detail:'full'). 'detail' nao vai pra api.listMemory.
+    async ({ detail, ...filter }) => {
+      try {
+        const entries = await api.listMemory(filter)
+        if (detail === 'full') return ok(entries)
+        return ok(entries.map((e) => ({ id: e.id, category: e.category, title: e.title })))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'get_memory',
+    {
+      description: 'Le o CONTEUDO completo de UMA entrada da MRP por id (o body inteiro). Use pra abrir so a entrada relevante, a partir do indice do list_memory (ou dos titulos do inicio da sessao). Barato por design - nao puxe a MRP toda pra ler uma nota.',
+      inputSchema: { id: z.string() },
     },
     async (args) => {
       try {
-        return ok(await api.listMemory(args))
+        const entry = await api.getMemory(args.id)
+        if (!entry) return fail(new Error('entrada da MRP nao encontrada'))
+        return ok(entry)
       } catch (e) {
         return fail(e)
       }
