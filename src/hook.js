@@ -58,6 +58,17 @@ export function formatGentle(open) {
   return `Lembrete: se voce avancou ou concluiu algo rastreado nesta sessao, registre via update_item no tracker Tether (${open.length} item(ns) aberto(s)).`
 }
 
+const TITLE_MAX = 70
+const HINT_MAX = 200
+
+// Corte so na EXIBICAO - o dado nunca e truncado.
+function oneLine(s, max) {
+  const flat = String(s).replace(/\s*\n\s*/g, ' ').trim()
+  return flat.length <= max ? flat : flat.slice(0, max - 1).trimEnd() + '…'
+}
+
+// Espelho de src/hooks/format.ts (tether). A MRP inteira so cabe no inicio da sessao enquanto o
+// projeto e novo; passado o cap sobra o INDICE (titulo + gancho), e o corpo vem do get_memory.
 export function formatMemory(entries) {
   const active = entries.filter((e) => !e.archived)
   if (active.length === 0)
@@ -65,15 +76,29 @@ export function formatMemory(entries) {
   const totalChars = active.reduce((n, e) => n + e.body.length, 0)
   const compact = active.length > 30 || totalChars > 8000
   const lines = [
-    `MRP (Memoria Referencial de Projeto) - ${active.length} entrada(s)${compact ? ' [so titulos; list_memory da o indice com ids, get_memory(id) le uma entrada, list_memory({category,detail:"full"}) le uma categoria]' : ''}:`,
+    `MRP (Memoria Referencial de Projeto) - ${active.length} entrada(s)${compact ? ' [indice: titulo + gancho. O corpo vem do get_memory(id); list_memory da os ids]' : ''}:`,
   ]
   for (const cat of CATEGORY_ORDER) {
     const group = active.filter((e) => e.category === cat)
     if (group.length === 0) continue
     lines.push(`[${CATEGORY_LABEL[cat]}]`)
-    for (const e of group) lines.push(compact ? `- ${e.title}` : `- ${e.title}: ${e.body.replace(/\n/g, '\n  ')}`)
+    for (const e of group) {
+      if (!compact) {
+        lines.push(`- ${e.title}: ${e.body.replace(/\n/g, '\n  ')}`)
+        continue
+      }
+      lines.push(`- ${oneLine(e.title, TITLE_MAX)}`)
+      // `?? ''` obrigatorio: aqui o JSON de /api/memory chega CRU. Servidor ainda nao migrado
+      // manda a entrada sem o campo, e sem isso o bloco inteiro da sessao quebra.
+      const hint = oneLine(e.hint ?? '', HINT_MAX)
+      if (hint) lines.push(`  > ${hint}`)
+    }
   }
-  lines.push('Siga o que esta na MRP ao trabalhar neste projeto.')
+  lines.push(
+    compact
+      ? 'O gancho (>) diz QUANDO a entrada importa. Antes de mexer numa area coberta por um gancho acima, ABRA a entrada com get_memory(id) - nao trabalhe so pelo titulo.'
+      : 'Siga o que esta na MRP ao trabalhar neste projeto.',
+  )
   return lines.join('\n')
 }
 

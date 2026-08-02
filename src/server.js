@@ -26,6 +26,7 @@ const MemoryPatch = z.object({
   category: MemoryCategory.optional(),
   title: z.string().min(1).optional(),
   body: z.string().min(1).optional(),
+  hint: z.string().optional(),
   archived: z.boolean().optional(),
 })
 const ReminderStatus = z.enum(['pending', 'done', 'dismissed'])
@@ -47,11 +48,13 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.7.0' },
+    { name: 'tether', version: '1.8.0' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
-        'Os TITULOS da MRP ja vem no inicio da sessao - leia-os e SIGA o que estiver la. ' +
+        'O INDICE da MRP (titulo + gancho de cada entrada) ja vem no inicio da sessao - leia-o e SIGA o que estiver la. ' +
+        'O GANCHO (linha com ">") diz QUANDO aquela entrada importa: ao tocar uma area que um gancho cobre, ' +
+        'ABRA a entrada com get_memory(id) antes de agir - trabalhar so pelo titulo e o erro que o gancho existe pra evitar. ' +
         'Para o CONTEUDO de uma entrada, leia sob demanda (nao puxe a MRP toda a toa): ' +
         'list_memory da o indice barato (ids+titulos), get_memory(id) abre UMA entrada, ' +
         'list_memory({category, detail:"full"}) le uma categoria inteira antes de operar nela. ' +
@@ -239,8 +242,9 @@ export async function runServer(config) {
       inputSchema: {
         project: z.string().optional(),
         category: MemoryCategory,
-        title: z.string(),
+        title: z.string().describe('Curto (ate ~60 caracteres): o ASSUNTO, nao o resumo. Titulo longo e cortado na exibicao.'),
         body: z.string(),
+        hint: z.string().describe('O GANCHO, uma linha: o que essa entrada poupa e QUANDO abri-la. Numa MRP grande e a UNICA coisa que o agente ve alem do titulo, entao e ele que decide se a entrada e lida. Escreva pra quem ainda nao sabe que precisa dela: "Vai te custar 1h cacando cache. Abra ANTES de mexer em pagina de autoatendimento."'),
       },
     },
     async (args) => {
