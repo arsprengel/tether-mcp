@@ -99,6 +99,14 @@ export function formatMemory(entries) {
       ? 'O gancho (>) diz QUANDO a entrada importa. Antes de mexer numa area coberta por um gancho acima, ABRA a entrada com get_memory(id) - nao trabalhe so pelo titulo.'
       : 'Siga o que esta na MRP ao trabalhar neste projeto.',
   )
+  // Backfill oportunista (item #133): so aparece enquanto HA o que preencher e some sozinho no
+  // zero - nunca vira ruido permanente.
+  const semGancho = active.filter((e) => !(e.hint ?? '').trim()).length
+  if (semGancho > 0) {
+    lines.push(
+      `[${semGancho} destas entradas ainda estao sem gancho] Ao ABRIR uma delas e ver que nao tem o gancho, escreva um antes de seguir: update_memory(id, {hint: "..."}) - uma linha com o que a entrada poupa e QUANDO abri-la. Nao interrompa a tarefa do usuario pra preencher em lote; se ele PEDIR o backfill, ai sim faca todas de uma vez.`,
+    )
+  }
   return lines.join('\n')
 }
 

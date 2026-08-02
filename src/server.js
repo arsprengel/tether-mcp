@@ -48,7 +48,7 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.8.0' },
+    { name: 'tether', version: '1.8.1' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
