@@ -47,12 +47,29 @@ function fail(err) {
 // ESPELHO de src/mcp/tools.ts no tether (paginarNoTeto/cortarCorpo) - mudou la, muda aqui.
 export const TETO_RESPOSTA_CHARS = 40_000
 
+// CURSOR OPACO, o modelo de paginacao do proprio MCP (o cliente nao deve interpretar nem
+// guardar o valor). Aqui ele carrega a IDENTIDADE do ultimo item entregue, nao a posicao:
+// offset numerico so serve quando a lista so cresce no fim (a MRP, ordenada por created_at).
+// A lista de itens sai na ordem do board, que o move_item reordena - com offset, mexer num
+// item da pagina 1 empurra a lista e a pagina 2 PULA um item, em silencio.
+const paraCursor = (v) => Buffer.from(v, 'utf8').toString('base64url')
+const deCursor = (c) => Buffer.from(c, 'base64url').toString('utf8')
+
 // Corta a lista por ORCAMENTO DE CHARS (nao por numero de entradas: elas variam de 500 a 7000
 // chars). Devolve o array puro quando a pagina cobre a lista inteira - o formato antigo, que e
 // o caso comum - e so entao veste o envelope com o aviso. O corte nunca e silencioso.
 export function paginarNoTeto(todas, opts = {}) {
   const teto = opts.teto ?? TETO_RESPOSTA_CHARS
-  const bruto = Math.trunc(Number(opts.offset ?? 0))
+  // Cursor que nao existe mais (item apagado ou renumerado) NAO vira erro: a IA ficaria sem
+  // nada na mao. Recomeca do inicio e diz que recomecou.
+  let cursorPerdido = false
+  let porCursor = -1
+  if (opts.cursorDe && opts.cursor) {
+    const alvo = (() => { try { return deCursor(opts.cursor) } catch { return '' } })()
+    porCursor = alvo ? todas.findIndex((e) => opts.cursorDe(e) === alvo) : -1
+    cursorPerdido = porCursor < 0
+  }
+  const bruto = porCursor >= 0 ? porCursor + 1 : Math.trunc(Number(opts.offset ?? 0))
   const inicio = Math.min(Math.max(0, Number.isFinite(bruto) ? bruto : 0), todas.length)
   const limite = opts.limit && opts.limit > 0 ? Math.trunc(opts.limit) : todas.length
   const janela = todas.slice(inicio, inicio + limite)
@@ -79,20 +96,27 @@ export function paginarNoTeto(todas, opts = {}) {
     // Array puro (formato antigo) SO quando a resposta e a lista inteira e nada foi cortado -
     // corpo cortado com cara de resposta completa e exatamente o silencio que este item veio
     // resolver.
-    if (inicio === 0 && proximo >= todas.length && !cortou) return entries
+    if (inicio === 0 && proximo >= todas.length && !cortou && !cursorPerdido) return entries
     const faltam = todas.length - proximo
+    const ultima = entries[entries.length - 1]
+    const cursorDaqui = opts.cursorDe && ultima !== undefined ? paraCursor(opts.cursorDe(ultima)) : null
+    const continuar = opts.cursorDe
+      ? `chame de novo com cursor:"${cursorDaqui}"`
+      : `chame de novo com offset:${proximo}`
+    const avisoCursor = cursorPerdido ? 'O cursor recebido nao existe mais na lista (item saiu ou mudou de lugar), entao recomecei do inicio. ' : ''
     return {
-      aviso: entries.length === 0
-        ? `Nada nesse offset: a lista tem ${todas.length} entrada(s), offset valido de 0 a ${Math.max(0, todas.length - 1)}.`
+      aviso: avisoCursor + (entries.length === 0
+        ? `Nada aqui: a lista tem ${todas.length} entrada(s).`
         : faltam > 0
-          ? `Resposta cortada no teto de saida: vieram ${entries.length} de ${todas.length} entrada(s), a partir de ${inicio}. Faltam ${faltam} - chame de novo com offset:${proximo}${opts.dica ?? ''}.`
+          ? `Resposta cortada no teto de saida: vieram ${entries.length} de ${todas.length} entrada(s). Faltam ${faltam} - ${continuar}${opts.dica ?? ''}.`
           : cortou
             ? 'Entrada grande demais para uma resposta so: o corpo veio cortado (o proprio corpo diz onde e como ler o resto).'
-            : `Fim da lista: entrada(s) ${inicio} a ${proximo - 1} de ${todas.length}.`,
+            : `Fim da lista: ${entries.length} entrada(s) de ${todas.length}.`),
       total: todas.length,
-      offset: inicio,
       devolvidas: entries.length,
-      proximo_offset: faltam > 0 ? proximo : null,
+      ...(opts.cursorDe
+        ? { proximo_cursor: faltam > 0 ? cursorDaqui : null }
+        : { offset: inicio, proximo_offset: faltam > 0 ? proximo : null }),
       entries,
     }
   }
@@ -119,6 +143,45 @@ export function paginarNoTeto(todas, opts = {}) {
   return pagina
 }
 
+// Status que tiram o item da mesa. Definido pelo NEGATIVO de proposito: status novo nasce
+// contando como aberto e aparece na frente, em vez de sumir no fim sem ninguem notar.
+const FECHADOS = new Set(['done', 'dropped'])
+const indiceDeItem = (i) => ({
+  id: i.id, number: i.number, title: i.title, type: i.type, status: i.status, priority: i.priority,
+})
+
+// #156: a resposta de list_items degrada em NIVEIS, e o que ela sacrifica e PROFUNDIDADE,
+// nunca COBERTURA. Paginar a lista crua seria pior que o defeito que conserta: ela sai na
+// ordem do board e os antigos (concluidos) vem na frente, entao a pagina 1 do tether seria
+// 25 itens fechados e zero abertos - resposta plausivel e inutil, que passa batido. A ordem
+// certa, que e o padrao de mercado pra resultado de tool grande, e outra: filtrar (status/
+// type/tag, ja existia) > PROJETAR CAMPOS (resumo agora, detalhe sob demanda via get_item) >
+// so entao paginar. E dizer sempre o que ficou de fora.
+// ESPELHO de respostaDeItens em src/mcp/tools.ts no tether - mudou la, muda aqui.
+export function respostaDeItens(todos, opts = {}) {
+  const teto = opts.teto ?? TETO_RESPOSTA_CHARS
+  // Nivel 1: cabe com corpo -> byte a byte o que ja saia antes. E o caso comum (list_items
+  // com filtro de status), e nao muda.
+  if (opts.detail !== 'index' && !opts.cursor && JSON.stringify(todos, null, 2).length <= teto)
+    return todos
+
+  // Nivel 2: indice enxuto do conjunto INTEIRO, aberto antes de fechado.
+  const abertos = todos.filter((i) => !FECHADOS.has(i.status))
+  const indice = [...abertos, ...todos.filter((i) => FECHADOS.has(i.status))].map(indiceDeItem)
+  const nota = opts.detail === 'index'
+    ? 'Indice enxuto, abertos primeiro: so id/numero/titulo/tipo/status/prioridade. Abra um item inteiro com get_item(id).'
+    : `Lista grande demais pra caber com os corpos: veio o INDICE de TODOS os ${todos.length} item(ns), abertos primeiro (${abertos.length} aberto(s)) - nenhum ficou de fora. Abra um com get_item(id), ou filtre por status/type pra receber os corpos.`
+  // Nivel 3: nem o indice cabe (argus 355 itens, TrendWager 389) -> pagina, por cursor. O
+  // orcamento desconta a nota ANTES de paginar: ela e grudada no aviso depois, ou seja por
+  // fora da garantia do helper - foi assim que a resposta passou do teto por ~150 chars.
+  const pagina = paginarNoTeto(indice, {
+    cursor: opts.cursor, limit: opts.limit, teto: teto - nota.length - 40, cursorDe: (e) => e.id,
+  })
+  if (Array.isArray(pagina))
+    return { aviso: nota, total: indice.length, devolvidas: pagina.length, proximo_cursor: null, entries: pagina }
+  return { ...pagina, aviso: `${nota} ${pagina.aviso}` }
+}
+
 // Ultimo recurso: UMA entrada da MRP maior que o teto inteiro. Corta o corpo e deixa o aviso
 // DENTRO do texto, onde a IA vai ler, com o ponteiro pra leitura completa. Nao se corta o
 // corpo de entrada que caiba - meia verdade num gotcha e pior que uma pagina a mais.
@@ -138,7 +201,7 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.9.0' },
+    { name: 'tether', version: '1.10.0' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
@@ -168,17 +231,21 @@ export async function runServer(config) {
   server.registerTool(
     'list_items',
     {
-      description: 'Lista itens do tracker. Use no inicio para ver pontas abertas antes de agir.' + scoped,
+      description: 'Lista itens do tracker. Use no inicio para ver pontas abertas antes de agir. Filtre (status/type/tag) sempre que souber o que procura - e mais barato e mais preciso. Projeto grande: se a lista nao couber com os corpos, ela vem como INDICE de TODOS os itens (id/numero/titulo/tipo/status/prioridade), abertos primeiro, com aviso - nenhum item fica de fora, e o corpo de um item sai por get_item(id). Se ainda assim vier cortada, continue pelo proximo_cursor.' + scoped,
       inputSchema: {
         project: z.string().optional(),
         status: ItemStatus.optional(),
         type: ItemType.optional(),
         tag: z.string().optional(),
+        detail: z.enum(['index', 'full']).optional().describe('full (padrao): itens completos, caindo pro indice sozinho se nao couber. index: pede logo o indice enxuto.'),
+        cursor: z.string().optional().describe('Continua de onde a resposta anterior parou. Use o proximo_cursor devolvido; e opaco, nao interprete o valor.'),
+        limit: z.number().int().min(1).optional().describe('Teto de itens nesta resposta (o teto de tamanho vale de qualquer jeito).'),
       },
     },
-    async (args) => {
+    // #156: detail/cursor/limit sao da SAIDA, nao do storage - saem do filtro antes da API.
+    async ({ detail, cursor, limit, ...filter }) => {
       try {
-        return ok(await api.listItems(args))
+        return ok(respostaDeItens(await api.listItems(filter), { detail, cursor, limit }))
       } catch (e) {
         return fail(e)
       }
