@@ -39,6 +39,96 @@ function fail(err) {
   return { content: [{ type: 'text', text: `error: ${msg}` }], isError: true }
 }
 
+// #130: TETO DE SAIDA. A resposta de uma tool MCP tem limite no cliente (25K tokens no padrao
+// do Claude Code); acima dele a resposta e trocada por um ponteiro pra arquivo em disco - ou
+// seja, some justo pra quem le, que e a IA. A MRP cresce sem freio (tether 60 entradas/131K
+// chars, argus 177/421K), entao `detail:"full"` ja nascia condenado. 40K chars sobrevive ate
+// ao cambio char/token mais pessimista (~2.5) e cabe em qualquer teto praticado.
+// ESPELHO de src/mcp/tools.ts no tether (paginarNoTeto/cortarCorpo) - mudou la, muda aqui.
+export const TETO_RESPOSTA_CHARS = 40_000
+
+// Corta a lista por ORCAMENTO DE CHARS (nao por numero de entradas: elas variam de 500 a 7000
+// chars). Devolve o array puro quando a pagina cobre a lista inteira - o formato antigo, que e
+// o caso comum - e so entao veste o envelope com o aviso. O corte nunca e silencioso.
+export function paginarNoTeto(todas, opts = {}) {
+  const teto = opts.teto ?? TETO_RESPOSTA_CHARS
+  const bruto = Math.trunc(Number(opts.offset ?? 0))
+  const inicio = Math.min(Math.max(0, Number.isFinite(bruto) ? bruto : 0), todas.length)
+  const limite = opts.limit && opts.limit > 0 ? Math.trunc(opts.limit) : todas.length
+  const janela = todas.slice(inicio, inicio + limite)
+
+  const escolhidas = []
+  let gasto = 0
+  let cortou = false
+  for (const e of janela) {
+    const custo = JSON.stringify(e, null, 2).length
+    // A primeira entrada da pagina SEMPRE entra (cortada, se houver como): sem isso uma
+    // entrada maior que o teto devolveria pagina vazia pra sempre e a paginacao travava.
+    if (escolhidas.length === 0) {
+      cortou = custo > teto && !!opts.cortar
+      escolhidas.push(cortou ? opts.cortar(e, teto) : e)
+    }
+    else if (gasto + custo > teto) break
+    else escolhidas.push(e)
+    gasto += custo
+    if (gasto > teto) break
+  }
+
+  const montar = (entries) => {
+    const proximo = inicio + entries.length
+    // Array puro (formato antigo) SO quando a resposta e a lista inteira e nada foi cortado -
+    // corpo cortado com cara de resposta completa e exatamente o silencio que este item veio
+    // resolver.
+    if (inicio === 0 && proximo >= todas.length && !cortou) return entries
+    const faltam = todas.length - proximo
+    return {
+      aviso: entries.length === 0
+        ? `Nada nesse offset: a lista tem ${todas.length} entrada(s), offset valido de 0 a ${Math.max(0, todas.length - 1)}.`
+        : faltam > 0
+          ? `Resposta cortada no teto de saida: vieram ${entries.length} de ${todas.length} entrada(s), a partir de ${inicio}. Faltam ${faltam} - chame de novo com offset:${proximo}${opts.dica ?? ''}.`
+          : cortou
+            ? 'Entrada grande demais para uma resposta so: o corpo veio cortado (o proprio corpo diz onde e como ler o resto).'
+            : `Fim da lista: entrada(s) ${inicio} a ${proximo - 1} de ${todas.length}.`,
+      total: todas.length,
+      offset: inicio,
+      devolvidas: entries.length,
+      proximo_offset: faltam > 0 ? proximo : null,
+      entries,
+    }
+  }
+
+  // Garantia dura: o texto EMITIDO (mesmo JSON.stringify do ok()) fica sob o teto. O orcamento
+  // acima estima sem o envelope nem a indentacao extra do aninhamento; aqui confere de fato.
+  let pagina = montar(escolhidas)
+  const tamanho = () => JSON.stringify(pagina, null, 2).length
+  while (escolhidas.length > 1 && tamanho() > teto) {
+    escolhidas.pop()
+    pagina = montar(escolhidas)
+  }
+  // Sobrou uma entrada so e ainda passa: aperta o corte dela ate caber, em vez de confiar numa
+  // folga chutada. Sem isso o envelope (aviso + contadores) empurra a resposta pra fora do teto.
+  const inteira = janela[0]
+  if (opts.cortar && inteira !== undefined) {
+    for (let folga = 0; escolhidas.length === 1 && tamanho() > teto && folga < teto; ) {
+      folga += tamanho() - teto + 200
+      cortou = true
+      escolhidas[0] = opts.cortar(inteira, teto - folga)
+      pagina = montar(escolhidas)
+    }
+  }
+  return pagina
+}
+
+// Ultimo recurso: UMA entrada da MRP maior que o teto inteiro. Corta o corpo e deixa o aviso
+// DENTRO do texto, onde a IA vai ler, com o ponteiro pra leitura completa. Nao se corta o
+// corpo de entrada que caiba - meia verdade num gotcha e pior que uma pagina a mais.
+function cortarCorpo(e, teto) {
+  const cabe = teto - JSON.stringify({ ...e, body: '' }, null, 2).length - 300
+  if (cabe <= 0 || e.body.length <= cabe) return e
+  const faltam = e.body.length - cabe
+  return { ...e, body: `${e.body.slice(0, cabe)}\n\n[corpo cortado aqui - faltam ${faltam} chars. Leia inteiro com get_memory("${e.id}").]` }
+}
+
 // Sobe o MCP server (stdio). As tools espelham as do tether e falam com a API REST da nuvem.
 export async function runServer(config) {
   if (!config.url || !config.token) {
@@ -48,7 +138,7 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.8.1' },
+    { name: 'tether', version: '1.9.0' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
@@ -198,20 +288,25 @@ export async function runServer(config) {
   server.registerTool(
     'list_memory',
     {
-      description: 'Le a MRP (Memoria Referencial de Projeto): comandos, deploy, gotchas, decisoes e contexto duraveis do projeto. Os TITULOS de todas as entradas ja vem no inicio da sessao. Por padrao devolve so o INDICE (id, categoria, titulo) - barato; use pra pegar os ids das entradas que interessam. Para o CONTEUDO: get_memory(id) le UMA entrada; list_memory({category, detail:"full"}) le os bodies de UMA categoria; detail:"full" sem category le TUDO (caro) - so quando precisar de varios bodies. SIGA o que estiver na MRP.' + scoped,
+      description: 'Le a MRP (Memoria Referencial de Projeto): comandos, deploy, gotchas, decisoes e contexto duraveis do projeto. Os TITULOS de todas as entradas ja vem no inicio da sessao. Por padrao devolve so o INDICE (id, categoria, titulo) - barato; use pra pegar os ids das entradas que interessam. Para o CONTEUDO: get_memory(id) le UMA entrada; list_memory({category, detail:"full"}) le os bodies de UMA categoria; detail:"full" sem category le TUDO (caro) - so quando precisar de varios bodies. Resposta grande demais vem PAGINADA: nesse caso vem um objeto com aviso/total/proximo_offset/entries - se proximo_offset nao for null, chame de novo com esse offset pra pegar o resto. SIGA o que estiver na MRP.' + scoped,
       inputSchema: {
         project: z.string().optional(),
         category: MemoryCategory.optional(),
         detail: z.enum(['index', 'full']).optional().describe('index (padrao): so id/categoria/titulo. full: bodies completos (combine com category pra escopar).'),
+        offset: z.number().int().min(0).optional().describe('Pula as N primeiras entradas. Use o proximo_offset devolvido pela pagina anterior.'),
+        limit: z.number().int().min(1).optional().describe('Teto de entradas nesta resposta (o teto de tamanho vale de qualquer jeito).'),
       },
     },
     // #93: default = INDICE (so id/category/title, ~1.5K tok em vez de ~18.5K de bodies). O body
     // vem sob demanda (get_memory ou detail:'full'). 'detail' nao vai pra api.listMemory.
-    async ({ detail, ...filter }) => {
+    // #130: offset/limit sao da SAIDA, nao do storage - saem do filtro junto com o detail.
+    async ({ detail, offset, limit, ...filter }) => {
       try {
         const entries = await api.listMemory(filter)
-        if (detail === 'full') return ok(entries)
-        return ok(entries.map((e) => ({ id: e.id, category: e.category, title: e.title })))
+        const pag = { offset, limit }
+        if (detail === 'full')
+          return ok(paginarNoTeto(entries, { ...pag, dica: ', ou filtre por category pra uma fatia menor', cortar: cortarCorpo }))
+        return ok(paginarNoTeto(entries.map((e) => ({ id: e.id, category: e.category, title: e.title })), pag))
       } catch (e) {
         return fail(e)
       }
