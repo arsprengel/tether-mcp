@@ -3,7 +3,9 @@
 // passando project explicito para mexer em outro projeto.
 export function createApiClient({ url, token, project }, fetchImpl = fetch) {
   const base = (url || '').replace(/\/$/, '')
-  const authHeaders = { authorization: `Bearer ${token}` }
+  // x-tether-actor: quem escreve aqui e a IA, nunca a pessoa na mao. O AUTOR continua sendo a conta
+  // do token (o servidor resolve); este header so separa "aberto pela IA" de "aberto no dashboard".
+  const authHeaders = { authorization: `Bearer ${token}`, 'x-tether-actor': 'agent' }
 
   async function req(method, path, body) {
     if (!base || !token) {
