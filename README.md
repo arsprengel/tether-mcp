@@ -62,15 +62,18 @@ no dashboard e a aba "Referencia".
 ## Hooks de sessao (v1.3.0+, recomendado)
 
 `node <pasta>/bin.js hooks install` registra no seu `~/.claude/settings.json` (com backup e sem
-duplicar) dois hooks: ao ABRIR uma sessao do Claude num projeto com tracker, os itens abertos e
-a MRP entram automaticos no contexto (a IA nasce sabendo, sem depender de chamar tool); ao
-FECHAR, um lembrete cobra reconciliar item in_progress e registrar descobertas na MRP. Sempre
-fail-silent: sem login/rede o hook sai quieto e nada quebra. `hooks uninstall` desfaz.
+duplicar) o hook de ABERTURA: ao abrir uma sessao do Claude num projeto com tracker, os itens
+abertos e a MRP entram automaticos no contexto (a IA nasce sabendo, sem depender de chamar
+tool), junto com a convencao de manter o status dos itens em dia. Sempre fail-silent: sem
+login/rede o hook sai quieto e nada quebra. `hooks uninstall` desfaz.
 
-A partir da **v1.11.0** esse lembrete de fechamento NUNCA trava a resposta: ele so entra no
-contexto da IA. Antes, item em andamento fazia o hook segurar o encerramento a cada fim de turno
-e o aviso saia na tela como "Stop hook error", com o comando do hook junto. Agora a IA continua
-vendo o estado do item a cada troca e reconcilia quando cabe, sem nada aparecer para quem le.
+O hook de FECHAMENTO saiu na **v1.11.0** (e o install remove o que estiver registrado). Ele
+cobrava reconciliar item in_progress no fim de cada turno, e isso saia na tela do usuario como
+"Stop hook error" com o comando do hook junto. Medido no proprio Claude Code: qualquer palavra
+que um hook devolva no fim do turno - inclusive contexto "silencioso" - reabre o turno e faz o
+modelo emitir MAIS UMA resposta na tela; calado, sai uma resposta so. A cobranca migrou pro
+texto de abertura, onde nao custa nada. Quem ainda tiver o hook antigo registrado nao precisa
+fazer nada: o comando existe e nao fala mais.
 O install.sh ja oferece esse registro no final.
 
 ## Atualizar (pegar tools novas)

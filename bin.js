@@ -63,8 +63,8 @@ async function main() {
     return
   }
   if (cmd === 'hook') {
-    // Chamado pelo Claude Code (SessionStart/Stop). Nunca pode derrubar a sessao:
-    // qualquer erro inesperado vira exit 0 silencioso; o unico exit 2 e o reconcile.
+    // Chamado pelo Claude Code (SessionStart; e Stop nos settings antigos). Nunca pode derrubar
+    // a sessao: qualquer erro inesperado vira exit 0 silencioso, e nada aqui sai por exit != 0.
     const sub = process.argv[3]
     let input = {}
     try {
@@ -78,8 +78,11 @@ async function main() {
     } catch {
       /* stdin ruim: segue com input vazio */
     }
+    // So "context" faz trabalho; "reconcile" (hook de Stop dos settings antigos) sai calado aqui,
+    // sem nem resolver config ou tocar a rede - ele roda a cada fim de turno.
+    if (sub !== 'context') process.exit(0)
     // Auto-heal do .tether ANTES de ler (pega renames; nunca derruba o hook).
-    if (sub === 'context') await healTetherIfRenamed(input.cwd ?? process.cwd())
+    await healTetherIfRenamed(input.cwd ?? process.cwd())
     const outcome = await runHook(sub, input).catch(() => ({ exitCode: 0 }))
     const payload = outcome.stdout ?? outcome.stderr
     if (payload) {
@@ -117,7 +120,7 @@ async function main() {
         '  tether-mcp login      conecta esta maquina ao Tether (login pelo site)',
         '  tether-mcp logout     apaga o token salvo',
         '  tether-mcp status     mostra url, projeto e se ha token',
-        '  tether-mcp hooks install|uninstall   registra/remove os hooks de sessao do Claude',
+        '  tether-mcp hooks install|uninstall   registra/remove o hook de abertura de sessao do Claude',
         '                        (tracker + MRP automaticos no inicio, lembrete no stop)',
         '',
         'Env: TETHER_API_URL (endereco do Tether; obrigatorio no 1o login, o admin te passa),',

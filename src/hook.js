@@ -4,9 +4,9 @@ import { findTetherProject } from './tether-file.js'
 
 // Hooks de sessao do Claude Code falando com a API do Tether (mesmo desenho dos hooks do
 // repo principal, portado pro cliente standalone): "context" injeta itens abertos + MRP no
-// inicio da sessao; "reconcile" cobra reconciliacao de item in_progress no stop.
+// inicio da sessao; "reconcile" existe so por compatibilidade e nao fala mais nada (v1.11.0).
 // REGRA DE OURO: hook NUNCA derruba nem atrasa a sessao - qualquer falha (sem login, sem
-// rede, timeout, HTTP ruim) vira exit 0 silencioso. O unico exit 2 e o reconcile intencional.
+// rede, timeout, HTTP ruim) vira exit 0 silencioso. Nada aqui sai por exit != 0.
 
 const CATEGORY_ORDER = ['command', 'deploy', 'gotcha', 'decision', 'context']
 const CATEGORY_LABEL = {
@@ -44,7 +44,8 @@ export const REMINDER_CONVENTION =
   'a sessao nao fica aberta pra lembrar sozinha; o Tether guarda e mostra na aba Lembretes.'
 
 // Antes esta cobranca vivia no fim de cada turno (hook de Stop). Ela custava uma resposta extra
-// na tela por mensagem trocada, entao migrou para ca: dita uma vez, na abertura, de graca.
+// na tela por mensagem trocada, entao migrou para a abertura: dita uma vez, de graca. Fica FORA
+// do formatContext porque vale tambem em projeto que abre sem nenhum item aberto.
 export const STATUS_CONVENTION =
   'Status em dia: marque in_progress ao COMECAR um item (update_item) e feche-o na mesma sessao - ' +
   'done se concluiu, blocked se travou, todo se nao avancou - com nota/link de evidencia. Nada ' +
@@ -54,7 +55,7 @@ export function formatContext(open) {
   const body = open.map(line).join('\n')
   const base = `Tracker Tether deste projeto - ${open.length} item(ns) aberto(s):\n${body}\n\nConsulte/atualize via as tools do MCP tether (list_items, get_item, update_item, get_next) conforme avancar.`
   const withIdea = open.some((i) => i.type === 'idea') ? `${base}\n\n${IDEA_CONVENTION}` : base
-  return `${withIdea}\n\n${STATUS_CONVENTION}\n\n${REMINDER_CONVENTION}`
+  return `${withIdea}\n\n${REMINDER_CONVENTION}`
 }
 
 const TITLE_MAX = 70
@@ -141,19 +142,23 @@ export async function runHook(command, input = {}, fetchImpl = fetch) {
     ])
     const open = (items ?? []).filter((i) => i.status !== 'done' && i.status !== 'dropped')
     const mem = memory ?? []
+    // Silencio total em pasta sem nada rastreado - senao poluiria todo projeto da maquina, ja
+    // que com a nuvem ligada qualquer pasta responde. A convencao de status vai junto sempre que
+    // o hook ja fala (inclusive em projeto so com MRP): nada mais cobra item in_progress no fim
+    // do turno.
     if (open.length === 0 && mem.length === 0) return { exitCode: 0 }
     const parts = []
     if (open.length > 0) parts.push(formatContext(open))
+    parts.push(STATUS_CONVENTION)
     parts.push(formatMemory(mem))
     return { exitCode: 0, stdout: sessionStart(parts.join('\n\n')) }
   }
 
-  // "reconcile" e MUDO desde a v1.11.0 (medido no proprio Claude Code): qualquer palavra que o
-  // hook devolva no fim de um turno - exit 2 com stderr, decision:block OU additionalContext -
-  // reabre o turno e o modelo produz MAIS UMA resposta na tela do usuario. Com o hook calado sai
-  // uma resposta so. E o Stop dispara a CADA fim de turno, entao esse custo era por mensagem
-  // trocada. O que ele cobrava (reconciliar item in_progress, alimentar a MRP) migrou pro texto
-  // de abertura da sessao, onde nao custa resposta nenhuma. Cai no return abaixo de proposito:
-  // os settings ja instalados continuam chamando `reconcile` e emudecem sozinhos.
+  // Qualquer outro subcomando (na pratica so o "reconcile" do hook de Stop, morto na v1.11.0)
+  // cai aqui calado. O bin ja sai antes de chegar neste ponto; isto e a rede de seguranca pra
+  // quem chamar runHook direto. Motivo de ter morrido: medido no proprio Claude Code, qualquer
+  // palavra devolvida no fim de um turno - exit 2 com stderr, decision:block OU additionalContext
+  // - reabre o turno e o modelo produz MAIS UMA resposta na tela do usuario, e o Stop dispara a
+  // CADA fim de turno. O que ele cobrava migrou pro texto de abertura da sessao.
   return { exitCode: 0 }
 }

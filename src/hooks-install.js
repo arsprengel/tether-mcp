@@ -50,7 +50,10 @@ export function installHooks() {
   const stop = settings.hooks.Stop
   if (Array.isArray(stop)) {
     const before = stop.length
-    settings.hooks.Stop = stop.filter((g) => !(g.hooks ?? []).some((h) => isTetherHook(h.command, 'reconcile')))
+    // Pega tanto o nosso (bin.js hook reconcile) quanto o do repo principal, e nao depende da
+    // palavra "tether" estar no caminho: quem clonou numa pasta de outro nome tambem limpa.
+    const isReconcile = (c) => typeof c === 'string' && /\breconcile\b/.test(c) && (/tether/i.test(c) || c.includes('hook reconcile'))
+    settings.hooks.Stop = stop.filter((g) => !(g.hooks ?? []).some((h) => isReconcile(h.command)))
     if (settings.hooks.Stop.length !== before) results.push('Stop: removido (nao existe mais)')
   }
   writeFileSync(path, JSON.stringify(settings, null, 2) + '\n')

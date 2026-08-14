@@ -29,7 +29,7 @@ TETHER_API_URL="$URL" node "$DIR/bin.js" login
 if [ "$1" = "--no-hooks" ] || [ "$2" = "--no-hooks" ]; then
   echo "(hooks de sessao pulados; registre depois com: node $DIR/bin.js hooks install)"
 else
-  printf "==> registrar hooks de sessao do Claude (tracker + MRP automaticos ao abrir, lembrete ao fechar)? [S/n] "
+  printf "==> registrar hook de sessao do Claude (tracker + MRP automaticos ao abrir)? [S/n] "
   read -r RESP || RESP=""
   case "$RESP" in
     n|N) echo "(pulado; registre depois com: node $DIR/bin.js hooks install)" ;;

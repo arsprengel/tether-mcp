@@ -201,7 +201,7 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.11.0' },
+    { name: 'tether', version: '1.11.1' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
@@ -217,7 +217,10 @@ export async function runServer(config) {
         'TRABALHO-A-FAZER nao vai pra MRP, vira item do tracker (add_item); corte deliberado = ponteiro pro item. ' +
         'Corrija ou aposente entradas velhas com update_memory. ' +
         'Itens de trabalho: list_items/get_next para ver pontas abertas, add_item ao descobrir ' +
-        'trabalho novo, update_item ao avancar ou concluir. ' +
+        'trabalho novo, update_item ao avancar ou concluir. Item que voce marcar in_progress, ' +
+        'FECHE na mesma sessao (done concluiu / blocked travou / todo nao avancou) com nota ou ' +
+        'link de evidencia: nada cobra isso no fim da conversa, e item esquecido em in_progress ' +
+        'fica mentindo no tracker pra equipe inteira. ' +
         'Lembretes: se prometer avisar algo numa data futura, registre com add_reminder (o Tether ' +
         'guarda e mostra no dashboard, ja que a sessao nao fica aberta pra lembrar); list_reminders ve os pendentes.',
     },
