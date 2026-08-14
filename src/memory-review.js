@@ -72,9 +72,15 @@ export function formatFaxina(entries, agora = Date.now()) {
   if (!plano.pendente) return null
   const quando = plano.dias === null ? 'nunca passou por faxina' : `ultima faxina ha ${plano.dias} dia(s)`
   const excesso = plano.excedente > 0 ? `, ${plano.excedente} acima do alvo de ${plano.alvo}` : ''
-  return [
+  const linhas = [
     `[FAXINA DA MRP PENDENTE] ${plano.total} entrada(s) ativa(s)${excesso}; ${quando}.`,
     'ANTES da tarefa do usuario: chame review_memory() sem argumentos, julgue o lote que vier e feche com review_memory({keep, archive}).',
     'E uma passada curta, arquivar e reversivel e nao precisa de aprovacao. MRP que so cresce para de ser lida.',
-  ].join('\n')
+  ]
+  // MRP muito inchada nao se resolve numa rodada. Dizer o tamanho do buraco evita duas coisas:
+  // a IA achar que terminou o servico, e o usuario nao saber que pode mandar limpar tudo de uma vez.
+  const rodadas = Math.ceil(plano.excedente / plano.lote.length)
+  if (rodadas > 1)
+    linhas.push(`Nesse ritmo sao ~${rodadas} rodadas ate o alvo. Se o usuario pedir faxina completa, encadeie as rodadas agora, sem esperar as proximas sessoes.`)
+  return linhas.join('\n')
 }
