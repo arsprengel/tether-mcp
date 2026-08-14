@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { createApiClient } from './api.js'
+import { planejarFaxina, REGUA_MRP, MRP_ALVO, INSTRUCAO_FAXINA } from './memory-review.js'
 
 // Espelha tether/src/core/schema.ts (fonte de verdade dos valores validos). Repo standalone,
 // nao importa o core do tether - se o core mudar os valores, atualizar aqui tambem.
@@ -201,7 +202,7 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.11.1' },
+    { name: 'tether', version: '1.12.0' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
@@ -211,11 +212,12 @@ export async function runServer(config) {
         'Para o CONTEUDO de uma entrada, leia sob demanda (nao puxe a MRP toda a toa): ' +
         'list_memory da o indice barato (ids+titulos), get_memory(id) abre UMA entrada, ' +
         'list_memory({category, detail:"full"}) le uma categoria inteira antes de operar nela. ' +
-        'Ao descobrir um GOTCHA/decisao/comando/deploy nao-obvio e duravel, registre com add_memory - ' +
-        'REGUA ALTA: so o que POUPA TEMPO futuro e NAO esta a vista no codigo; na duvida nao registre; ' +
-        'grave o PORQUE, nao duplique SQL/estrutura/passo-a-passo. Cheque list_memory antes. ' +
+        'Ao descobrir um GOTCHA/decisao/comando/deploy nao-obvio e duravel, registre com add_memory. ' +
+        REGUA_MRP + ' Grave o PORQUE, nao duplique SQL/estrutura/passo-a-passo. Cheque list_memory antes. ' +
         'TRABALHO-A-FAZER nao vai pra MRP, vira item do tracker (add_item); corte deliberado = ponteiro pro item. ' +
         'Corrija ou aposente entradas velhas com update_memory. ' +
+        'FAXINA: se o inicio da sessao avisar que a faxina da MRP esta pendente, chame review_memory ANTES ' +
+        'de comecar a tarefa - ele devolve um lote pequeno pra julgar. Sem isso a MRP so cresce e para de ser lida. ' +
         'Itens de trabalho: list_items/get_next para ver pontas abertas, add_item ao descobrir ' +
         'trabalho novo, update_item ao avancar ou concluir. Item que voce marcar in_progress, ' +
         'FECHE na mesma sessao (done concluiu / blocked travou / todo nao avancou) com nota ou ' +
@@ -403,7 +405,7 @@ export async function runServer(config) {
   server.registerTool(
     'add_memory',
     {
-      description: 'Registra conhecimento duravel de REFERENCIA na MRP do projeto (comando, deploy, gotcha, decisao, contexto) - o que um agente precisa LER pra nao redescobrir. REGUA ALTA (de gotcha, nao de documentacao): so registre se (1) alguem perderia tempo/bateria a cabeca SEM essa nota, (2) e nao-obvio - NAO esta a vista lendo o codigo, e (3) continua verdade depois; na duvida, NAO registre. Grave so o PORQUE nao-obvio + a implicacao de futuro; NAO duplique SQL, constantes, estrutura de tabela nem passo-a-passo (isso vive no codigo/commit - no maximo aponte pra la). NAO registre trabalho-a-fazer/follow-up/backlog: isso e item do tracker (use add_item). Corte deliberado vira referencia com ponteiro pro item ("out-of-scope, ver #86"), nao TODO. Cheque list_memory antes para nao duplicar.' + scoped,
+      description: 'Registra conhecimento duravel de REFERENCIA na MRP do projeto (comando, deploy, gotcha, decisao, contexto) - o que um agente precisa LER pra nao redescobrir. ' + REGUA_MRP + ' Grave so o PORQUE nao-obvio + a implicacao de futuro; NAO duplique SQL, constantes, estrutura de tabela nem passo-a-passo (isso vive no codigo/commit - no maximo aponte pra la). NAO registre trabalho-a-fazer/follow-up/backlog: isso e item do tracker (use add_item). Corte deliberado vira referencia com ponteiro pro item ("out-of-scope, ver #86"), nao TODO. Cheque list_memory antes para nao duplicar.' + scoped,
       inputSchema: {
         project: z.string().optional(),
         category: MemoryCategory,
@@ -430,6 +432,43 @@ export async function runServer(config) {
     async (args) => {
       try {
         return ok(await api.updateMemory(args.id, args.patch))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  // Faxina (item #171). DUAS chamadas, nao duas tools: sem keep/archive devolve o lote a julgar;
+  // com eles, fecha a rodada. ESPELHO de review_memory em tether/src/mcp/tools.ts.
+  server.registerTool(
+    'review_memory',
+    {
+      description:
+        `FAXINA da MRP. Chame sem argumentos quando o inicio da sessao avisar que a faxina esta pendente (ou quando o usuario pedir limpeza): devolve um LOTE de entradas pra julgar, a regua e o que fazer. Depois chame de novo com keep/archive pra fechar a rodada. Existe porque a MRP so crescia: entrada boa e entrada morta ficavam lado a lado ate o indice virar parede de texto. O alvo e ${MRP_ALVO} entradas ativas por projeto - alvo desta faxina, nao trava do add_memory. Quem julga tem que ser a sessao que trabalha DENTRO do projeto: so ela consegue conferir se a nota ainda e verdade.` + scoped,
+      inputSchema: {
+        project: z.string().optional(),
+        keep: z.array(z.string()).optional().describe('ids que CONTINUAM valendo (so carimba o julgamento; nao mexe na entrada).'),
+        archive: z.array(z.object({
+          id: z.string(),
+          reason: z.string().describe('por que sai, em uma linha. Fica no historico da entrada, pra quem for desarquivar entender.'),
+        })).optional().describe('ids que SAEM da MRP. Arquiva (reversivel pelo dashboard), nunca apaga.'),
+      },
+    },
+    async ({ keep, archive, ...resto }) => {
+      try {
+        if (keep?.length || archive?.length)
+          return ok(await api.reviewMemory({ ...resto, keep: keep ?? [], archive: archive ?? [] }))
+        const plano = planejarFaxina(await api.listMemory(resto), Date.now())
+        const cabecalho = {
+          projeto: resto.project ?? config.project ?? null,
+          total: plano.total, alvo: plano.alvo, excedente: plano.excedente,
+          por_julgar: plano.lote.length, nunca_revisadas: plano.novas,
+          regua: REGUA_MRP,
+          instrucao: INSTRUCAO_FAXINA,
+        }
+        // O lote e o unico campo que cresce: desconta o cabecalho do teto antes de paginar.
+        const folga = JSON.stringify(cabecalho, null, 2).length + 200
+        return ok({ ...cabecalho, lote: paginarNoTeto(plano.lote, { teto: TETO_RESPOSTA_CHARS - folga, cortar: cortarCorpo }) })
       } catch (e) {
         return fail(e)
       }

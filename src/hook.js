@@ -1,6 +1,7 @@
 import { basename } from 'node:path'
 import { resolveConfig } from './config.js'
 import { findTetherProject } from './tether-file.js'
+import { formatFaxina } from './memory-review.js'
 
 // Hooks de sessao do Claude Code falando com a API do Tether (mesmo desenho dos hooks do
 // repo principal, portado pro cliente standalone): "context" injeta itens abertos + MRP no
@@ -18,8 +19,10 @@ const CATEGORY_LABEL = {
 }
 
 // Tambem migrou do fim do turno para a abertura, pelo mesmo motivo do STATUS_CONVENTION.
+// Nao repete a regua inteira (ela vive na description do add_memory, que a IA ja tem em contexto):
+// aqui so lembra que ela existe e que o padrao e NAO gravar - era esse default que faltava.
 export const MEMORY_REMINDER =
-  'Descobriu gotcha/comando/decisao duravel do projeto nesta sessao? Registre na MRP via add_memory (cheque list_memory antes; aposente entradas velhas com update_memory).'
+  'Descobriu algo duravel do projeto nesta sessao? Antes de gravar na MRP, passe pela regua do add_memory (as TRES perguntas) - o padrao e NAO gravar, e trabalho-a-fazer vira item do tracker. Aposente entrada velha com update_memory.'
 
 function line(i) {
   // #N = "ponto N" (numero 1-based na ordem natural do projeto), o MESMO que a UI mostra e que
@@ -151,6 +154,10 @@ export async function runHook(command, input = {}, fetchImpl = fetch) {
     if (open.length > 0) parts.push(formatContext(open))
     parts.push(STATUS_CONVENTION)
     parts.push(formatMemory(mem))
+    // Por ULTIMO de proposito: e a linha imediatamente antes da tarefa do usuario, e a unica do
+    // bloco que pede acao ANTES de comecar. No meio do indice da MRP ela passaria batida.
+    const faxina = formatFaxina(mem)
+    if (faxina) parts.push(faxina)
     return { exitCode: 0, stdout: sessionStart(parts.join('\n\n')) }
   }
 

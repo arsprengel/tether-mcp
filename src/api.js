@@ -94,6 +94,11 @@ export function createApiClient({ url, token, project }, fetchImpl = fetch) {
     async updateMemory(id, patch = {}) {
       return jsonOrThrow(await req('PATCH', `/api/memory/${id}`, patch), 'update_memory')
     },
+    // Faxina (item #171): fecha uma rodada inteira numa chamada. project do corpo, igual ao POST.
+    async reviewMemory(input = {}) {
+      const body = { project, ...input }
+      return jsonOrThrow(await req('POST', '/api/memory/review', body), 'review_memory')
+    },
     // Lembretes/Agendamentos (item #12): "me lembra no dia X de Y". Mesmos endpoints
     // /api/reminders do dashboard. O disparo (e-mail/SMS) e fase futura; por ora o Tether guarda.
     async listReminders(filter = {}) {
