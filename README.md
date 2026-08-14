@@ -66,6 +66,11 @@ duplicar) dois hooks: ao ABRIR uma sessao do Claude num projeto com tracker, os 
 a MRP entram automaticos no contexto (a IA nasce sabendo, sem depender de chamar tool); ao
 FECHAR, um lembrete cobra reconciliar item in_progress e registrar descobertas na MRP. Sempre
 fail-silent: sem login/rede o hook sai quieto e nada quebra. `hooks uninstall` desfaz.
+
+A partir da **v1.11.0** esse lembrete de fechamento NUNCA trava a resposta: ele so entra no
+contexto da IA. Antes, item em andamento fazia o hook segurar o encerramento a cada fim de turno
+e o aviso saia na tela como "Stop hook error", com o comando do hook junto. Agora a IA continua
+vendo o estado do item a cada troca e reconcilia quando cabe, sem nada aparecer para quem le.
 O install.sh ja oferece esse registro no final.
 
 ## Atualizar (pegar tools novas)

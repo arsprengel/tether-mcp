@@ -34,18 +34,24 @@ export function installHooks() {
   settings.hooks = settings.hooks ?? {}
   const bin = join(PKG_DIR, 'bin.js')
   const results = []
-  const wanted = [
-    ['SessionStart', 'context', `node "${bin}" hook context`],
-    ['Stop', 'reconcile', `node "${bin}" hook reconcile`],
-  ]
-  for (const [event, word, command] of wanted) {
-    settings.hooks[event] = settings.hooks[event] ?? []
-    if (groupHasTetherHook(settings.hooks[event], word)) {
-      results.push(`${event}: ja havia um hook do tether (mantido, nada a fazer)`)
-      continue
-    }
+  // So o de abertura. O de fechamento (Stop) saiu na v1.11.0: falar no fim do turno fazia a IA
+  // emitir mais uma resposta na tela a cada mensagem trocada, e o que ele cobrava agora e dito
+  // na abertura. Quem ja tinha o Stop registrado perde ele aqui - o comando ja e mudo de
+  // qualquer forma, isto so evita rodar um processo a toa em todo fim de turno.
+  const event = 'SessionStart'
+  const command = `node "${bin}" hook context`
+  settings.hooks[event] = settings.hooks[event] ?? []
+  if (groupHasTetherHook(settings.hooks[event], 'context')) {
+    results.push(`${event}: ja havia um hook do tether (mantido, nada a fazer)`)
+  } else {
     settings.hooks[event].push({ hooks: [{ type: 'command', command }] })
     results.push(`${event}: registrado (${command})`)
+  }
+  const stop = settings.hooks.Stop
+  if (Array.isArray(stop)) {
+    const before = stop.length
+    settings.hooks.Stop = stop.filter((g) => !(g.hooks ?? []).some((h) => isTetherHook(h.command, 'reconcile')))
+    if (settings.hooks.Stop.length !== before) results.push('Stop: removido (nao existe mais)')
   }
   writeFileSync(path, JSON.stringify(settings, null, 2) + '\n')
   return results
