@@ -202,11 +202,16 @@ export async function runServer(config) {
   }
   const api = createApiClient(config)
   const server = new McpServer(
-    { name: 'tether', version: '1.12.1' },
+    { name: 'tether', version: '1.13.0' },
     {
       instructions:
         'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
-        'O INDICE da MRP (titulo + gancho de cada entrada) ja vem no inicio da sessao - leia-o e SIGA o que estiver la. ' +
+        // Em ferramenta com gancho de inicio de sessao (Claude Code) o resumo ja chega sozinho. Em
+        // qualquer outra NAO chega, e a instrucao antiga afirmava que sim: a IA acreditava e comecava
+        // a trabalhar sem contexto nenhum. Agora ela confere e busca quando faltar.
+        'CONTEXTO DO PROJETO, ANTES DE COMECAR: se o resumo do projeto (indice da MRP + itens abertos) ' +
+        'NAO tiver chegado no inicio desta conversa, chame list_memory e get_next AGORA, antes de agir. ' +
+        'O INDICE da MRP (titulo + gancho de cada entrada) e leitura obrigatoria - leia-o e SIGA o que estiver la. ' +
         'O GANCHO (linha com ">") diz QUANDO aquela entrada importa: ao tocar uma area que um gancho cobre, ' +
         'ABRA a entrada com get_memory(id) antes de agir - trabalhar so pelo titulo e o erro que o gancho existe pra evitar. ' +
         'Para o CONTEUDO de uma entrada, leia sob demanda (nao puxe a MRP toda a toa): ' +

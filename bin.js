@@ -63,8 +63,9 @@ async function main() {
     return
   }
   if (cmd === 'hook') {
-    // Chamado pelo Claude Code (SessionStart; e Stop nos settings antigos). Nunca pode derrubar
-    // a sessao: qualquer erro inesperado vira exit 0 silencioso, e nada aqui sai por exit != 0.
+    // Chamado pelo gancho de inicio de sessao da ferramenta de IA (no Claude Code, SessionStart).
+    // Nunca pode derrubar a sessao: qualquer erro inesperado vira exit 0 silencioso, e nada aqui
+    // sai por exit != 0. Com `--texto`, imprime o resumo puro em vez do envelope do Claude Code.
     const sub = process.argv[3]
     let input = {}
     try {
@@ -84,7 +85,16 @@ async function main() {
     // Auto-heal do .tether ANTES de ler (pega renames; nunca derruba o hook).
     await healTetherIfRenamed(input.cwd ?? process.cwd())
     const outcome = await runHook(sub, input).catch(() => ({ exitCode: 0 }))
-    const payload = outcome.stdout ?? outcome.stderr
+    let payload = outcome.stdout ?? outcome.stderr
+    // O envelope JSON e o contrato do Claude Code. Ferramenta que injeta a saida do gancho como
+    // TEXTO (Gemini e afins) mostraria o JSON cru, entao `--texto` devolve so o conteudo.
+    if (payload && outcome.stdout && process.argv.includes('--texto')) {
+      try {
+        payload = JSON.parse(payload).hookSpecificOutput?.additionalContext ?? payload
+      } catch {
+        /* saida que nao e o envelope conhecido: manda como veio */
+      }
+    }
     if (payload) {
       const stream = outcome.stdout ? process.stdout : process.stderr
       stream.write(payload, () => process.exit(outcome.exitCode))
