@@ -9,6 +9,7 @@ import { runLogin } from './src/login.js'
 import { runHook } from './src/hook.js'
 import { healTetherIfRenamed } from './src/tether-heal.js'
 import { installHooks, uninstallHooks, settingsPath } from './src/hooks-install.js'
+import { runDoctor } from './src/doctor.js'
 import { espelharAmbiente } from './src/nome-legado.js'
 
 // Nome antigo (Tether) continua valendo em toda configuracao ja existente - ver nome-legado.js.
@@ -72,6 +73,11 @@ async function main() {
     }
     await runLogin(url)
     return
+  }
+  if (cmd === 'doctor') {
+    // Destrava a atualizacao automatica de uma maquina que parou. Roda por npx (codigo sempre
+    // novo), acha a pasta da instalacao sozinho e aceita um caminho explicito como argumento.
+    process.exit(runDoctor(process.argv[3]))
   }
   if (cmd === 'logout') {
     process.stdout.write(clearSaved() ? 'Token removido.\n' : 'Nenhum token salvo.\n')
@@ -152,11 +158,14 @@ async function main() {
         '  tether-mcp login      conecta esta maquina ao Trail (login pelo site)',
         '  tether-mcp logout     apaga o token salvo',
         '  tether-mcp status     mostra url, projeto e se ha token',
+        '  tether-mcp doctor     acha a instalacao nesta maquina, diz a versao e destrava a',
+        '                        atualizacao automatica quando ela parou (aceita um caminho)',
         '  tether-mcp hooks install|uninstall   registra/remove o hook de abertura de sessao do Claude',
         '                        (tracker + MRP automaticos no inicio, lembrete no stop)',
         '',
-        'Env: TETHER_API_URL (endereco do Trail; obrigatorio no 1o login, o admin te passa),',
-        '     TETHER_PROJECT (default = nome da pasta atual).',
+        'Env: TRAIL_API_URL (endereco do Trail; obrigatorio no 1o login, o admin te passa),',
+        '     TRAIL_PROJECT (default = nome da pasta atual).',
+        '     Os nomes antigos (TETHER_*) continuam valendo, sem prazo pra acabar.',
         '',
       ].join('\n'),
     )
