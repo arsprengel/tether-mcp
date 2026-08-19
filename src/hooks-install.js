@@ -3,7 +3,7 @@ import { join, dirname } from 'node:path'
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-// Registra/remove os hooks de sessao do Tether no ~/.claude/settings.json do usuario.
+// Registra/remove os hooks de sessao do Trail no ~/.claude/settings.json do usuario.
 // Cuidados (mexer em settings alheio e invasivo): backup .tether-bak antes de escrever,
 // registro IDEMPOTENTE (nao duplica; respeita hook do tether ja existente, inclusive o do
 // repo principal na maquina do admin), e JSON invalido aborta sem sobrescrever nada.

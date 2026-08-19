@@ -2,14 +2,26 @@ import { homedir } from 'node:os'
 import { join, basename } from 'node:path'
 import { mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync } from 'node:fs'
 import { findTetherProject } from './tether-file.js'
+import { PASTAS_DE_CONFIG, espelharAmbiente } from './nome-legado.js'
 
-// Sem endereco embutido de proposito: este repo e publico, mas o endereco do Tether e a conta
+// Idempotente: bin.js ja chama, mas config.js tambem e importado direto em teste e em script solto.
+espelharAmbiente()
+
+// Sem endereco embutido de proposito: este repo e publico, mas o endereco do Trail e a conta
 // sao privados da equipe. A URL vem do admin (env TETHER_API_URL no 1o login) e fica salva
 // depois disso. A trava de acesso e o login do servidor, nao este codigo.
 
+// Pasta onde a credencial fica salva. Escreve sempre na NOVA; le da antiga quando so ela existe,
+// senao quem ja tinha login perderia o acesso no dia em que o produto mudou de nome.
 export function configDir() {
   const base = process.env.XDG_CONFIG_HOME || join(homedir(), '.config')
-  return join(base, 'tether')
+  return join(base, PASTAS_DE_CONFIG[0])
+}
+
+// Todos os lugares onde a credencial PODE estar, na ordem de preferencia.
+export function configDirsDeLeitura() {
+  const base = process.env.XDG_CONFIG_HOME || join(homedir(), '.config')
+  return PASTAS_DE_CONFIG.map((p) => join(base, p))
 }
 
 export function tokenPath() {
@@ -17,11 +29,14 @@ export function tokenPath() {
 }
 
 export function readSaved() {
-  try {
-    return JSON.parse(readFileSync(tokenPath(), 'utf8'))
-  } catch {
-    return null
+  for (const dir of configDirsDeLeitura()) {
+    try {
+      return JSON.parse(readFileSync(join(dir, 'token.json'), 'utf8'))
+    } catch {
+      /* ausente ou ilegivel: tenta a proxima pasta */
+    }
   }
+  return null
 }
 
 export function writeSaved(data) {
@@ -35,13 +50,19 @@ export function writeSaved(data) {
   }
 }
 
+// Desconectar tem que apagar a credencial de TODAS as pastas possiveis: se so a nova fosse
+// limpa, quem tem o token na pasta antiga clicava em desconectar e continuava conectado.
 export function clearSaved() {
-  try {
-    rmSync(tokenPath())
-    return true
-  } catch {
-    return false
+  let apagou = false
+  for (const dir of configDirsDeLeitura()) {
+    try {
+      rmSync(join(dir, 'token.json'))
+      apagou = true
+    } catch {
+      /* nao existia ali */
+    }
   }
+  return apagou
 }
 
 // Resolve a config do server: env > token salvo (login) > default.

@@ -1,9 +1,9 @@
 # tether-mcp
 
-MCP do **Tether** - conecta o Claude Code (a IA) ao tracker de roadmap da sua equipe.
+MCP do **Trail** - conecta o Claude Code (a IA) ao tracker de roadmap da sua equipe.
 
-Este pacote e so o **cliente**: ele fala com o seu servidor do Tether. Qualquer um pode instalar,
-mas para usar precisa de uma **conta** no seu Tether (criada pelo admin) - a trava de acesso e o
+Este pacote e so o **cliente**: ele fala com o seu servidor do Trail. Qualquer um pode instalar,
+mas para usar precisa de uma **conta** no seu Trail (criada pelo admin) - a trava de acesso e o
 login do servidor, nao este codigo. O login e pelo site (device flow, estilo `gh auth login`):
 voce nao copia token a mao. Cada pessoa conecta a propria maquina e o Claude passa a escrever
 **como ela**, so nos projetos que ela pode ver, e no projeto da **pasta aberta** (nao mistura).
@@ -12,7 +12,7 @@ Leve: so `@modelcontextprotocol/sdk` + `zod` + `fetch` nativo (fala com a API RE
 
 ## Instalar (cada dev, uma vez)
 
-O admin te passa **o endereco do Tether** (a URL) e cria sua conta. Depois:
+O admin te passa **o endereco do Trail** (a URL) e cria sua conta. Depois:
 
 ```bash
 # 1. registra o MCP no Claude Code (escopo user = vale em todos os seus projetos)
@@ -46,7 +46,7 @@ mexer em outro projeto, a IA passa `project` explicito na tool.
 
 ## Configuracao (env)
 
-- `TETHER_API_URL` - endereco do seu Tether. Obrigatorio no 1o login; depois fica salvo.
+- `TETHER_API_URL` - endereco do seu Trail. Obrigatorio no 1o login; depois fica salvo.
 - `TETHER_PROJECT` - forca o nome do projeto (default: o nome da pasta aberta).
 - `TETHER_API_TOKEN` - token direto (pula o login pelo site; util em CI).
 

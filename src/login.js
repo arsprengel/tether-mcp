@@ -21,7 +21,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // faz polling e salva o token. Estilo `gh auth login` - sem copiar/colar token a mao.
 export async function runLogin(url, out = process.stdout) {
   const base = url.replace(/\/$/, '')
-  out.write(`Conectando ao Tether em ${base}\n`)
+  out.write(`Conectando ao Trail em ${base}\n`)
 
   const startRes = await fetch(base + '/api/auth/device/start', { method: 'POST' })
   if (!startRes.ok) throw new Error(`nao consegui iniciar o login (device/start -> HTTP ${startRes.status})`)
@@ -29,7 +29,7 @@ export async function runLogin(url, out = process.stdout) {
   const verifyUrl = d.verification_url_complete || `${base}/conectar?code=${d.user_code}`
 
   out.write('\n')
-  out.write('  1. Abra no navegador (ja logado no Tether):\n')
+  out.write('  1. Abra no navegador (ja logado no Trail):\n')
   out.write(`     ${verifyUrl}\n`)
   out.write(`  2. Confira o codigo:  ${d.user_code}\n`)
   out.write('\nAguardando a autorizacao no site...\n')

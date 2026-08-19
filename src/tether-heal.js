@@ -1,7 +1,7 @@
 import { resolveConfig } from './config.js'
 import { findTetherFile, rewriteTetherFile } from './tether-file.js'
 
-// Auto-heal do .tether: se a pasta aponta pra um projeto que foi RENOMEADO no Tether, reescreve o
+// Auto-heal do .tether: se a pasta aponta pra um projeto que foi RENOMEADO no Trail, reescreve o
 // arquivo pro nome atual (silencioso, idempotente). So quando ha config (url+token) e o nome vem
 // de um .tether real - TETHER_PROJECT env manda e nao mexe em arquivo. Best-effort: qualquer erro
 // e engolido, nunca derruba nem atrasa de forma fatal quem chama (hook e MCP server).

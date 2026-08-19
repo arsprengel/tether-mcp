@@ -100,7 +100,7 @@ export function createApiClient({ url, token, project }, fetchImpl = fetch) {
       return jsonOrThrow(await req('POST', '/api/memory/review', body), 'review_memory')
     },
     // Lembretes/Agendamentos (item #12): "me lembra no dia X de Y". Mesmos endpoints
-    // /api/reminders do dashboard. O disparo (e-mail/SMS) e fase futura; por ora o Tether guarda.
+    // /api/reminders do dashboard. O disparo (e-mail/SMS) e fase futura; por ora o Trail guarda.
     async listReminders(filter = {}) {
       const f = { project, ...filter }
       const p = new URLSearchParams()

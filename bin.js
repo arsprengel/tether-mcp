@@ -9,6 +9,10 @@ import { runLogin } from './src/login.js'
 import { runHook } from './src/hook.js'
 import { healTetherIfRenamed } from './src/tether-heal.js'
 import { installHooks, uninstallHooks, settingsPath } from './src/hooks-install.js'
+import { espelharAmbiente } from './src/nome-legado.js'
+
+// Nome antigo (Tether) continua valendo em toda configuracao ja existente - ver nome-legado.js.
+espelharAmbiente()
 
 const cmd = process.argv[2]
 
@@ -43,7 +47,7 @@ async function main() {
     const url = process.env.TETHER_API_URL || readSaved()?.url
     if (!url) {
       process.stderr.write(
-        'Defina o endereco do Tether no 1o login (o admin te passa), ex:\n' +
+        'Defina o endereco do Trail no 1o login (o admin te passa), ex:\n' +
           '  TETHER_API_URL=https://SEU-TETHER npx -y github:arsprengel/tether-mcp login\n',
       )
       process.exit(1)
@@ -123,17 +127,17 @@ async function main() {
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     process.stdout.write(
       [
-        'tether-mcp - MCP do Tether',
+        'tether-mcp - MCP do Trail',
         '',
         'Uso:',
         '  tether-mcp            sobe o servidor MCP (stdio) - usado pelo Claude',
-        '  tether-mcp login      conecta esta maquina ao Tether (login pelo site)',
+        '  tether-mcp login      conecta esta maquina ao Trail (login pelo site)',
         '  tether-mcp logout     apaga o token salvo',
         '  tether-mcp status     mostra url, projeto e se ha token',
         '  tether-mcp hooks install|uninstall   registra/remove o hook de abertura de sessao do Claude',
         '                        (tracker + MRP automaticos no inicio, lembrete no stop)',
         '',
-        'Env: TETHER_API_URL (endereco do Tether; obrigatorio no 1o login, o admin te passa),',
+        'Env: TETHER_API_URL (endereco do Trail; obrigatorio no 1o login, o admin te passa),',
         '     TETHER_PROJECT (default = nome da pasta atual).',
         '',
       ].join('\n'),

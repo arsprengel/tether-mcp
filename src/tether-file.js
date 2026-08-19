@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { ARQUIVOS_DE_PASTA } from './nome-legado.js'
 
 // Vinculo por pasta: um arquivo .tether na pasta (ou em qualquer ancestral) diz qual projeto
-// do Tether essa pasta representa, independente do nome da pasta. Espelha o mesmo resolver do
+// do Trail essa pasta representa, independente do nome da pasta. Espelha o mesmo resolver do
 // repo tether (src/core/tether-file.ts). Prioridade de resolucao do projeto no MCP/hooks:
 // TETHER_PROJECT (env) > .tether (mais proximo subindo) > nome da pasta (basename).
 
@@ -30,13 +31,16 @@ export function parseTetherFile(content) {
 export function findTetherFile(startDir) {
   let dir = startDir
   for (;;) {
-    const file = join(dir, '.tether')
-    if (existsSync(file)) {
+    // Na MESMA pasta o arquivo novo (.trail) vence o antigo (.tether) - mas o antigo continua
+    // valendo pra sempre, e sozinho ele manda.
+    for (const nome of ARQUIVOS_DE_PASTA) {
+      const file = join(dir, nome)
+      if (!existsSync(file)) continue
       let content = null
       try {
         content = readFileSync(file, 'utf8')
       } catch {
-        content = null // ilegivel -> trata como se nao houvesse .tether aqui, continua subindo
+        content = null // ilegivel -> trata como se nao houvesse arquivo aqui, tenta o proximo
       }
       if (content !== null) return { path: file, name: parseTetherFile(content) }
     }

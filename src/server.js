@@ -205,7 +205,7 @@ export async function runServer(config) {
     { name: 'tether', version: '1.13.0' },
     {
       instructions:
-        'Tether: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
+        'Trail: tracker de itens + MRP (Memoria Referencial de Projeto). ' +
         // Em ferramenta com gancho de inicio de sessao (Claude Code) o resumo ja chega sozinho. Em
         // qualquer outra NAO chega, e a instrucao antiga afirmava que sim: a IA acreditava e comecava
         // a trabalhar sem contexto nenhum. Agora ela confere e busca quando faltar.
@@ -228,7 +228,7 @@ export async function runServer(config) {
         'FECHE na mesma sessao (done concluiu / blocked travou / todo nao avancou) com nota ou ' +
         'link de evidencia: nada cobra isso no fim da conversa, e item esquecido em in_progress ' +
         'fica mentindo no tracker pra equipe inteira. ' +
-        'Lembretes: se prometer avisar algo numa data futura, registre com add_reminder (o Tether ' +
+        'Lembretes: se prometer avisar algo numa data futura, registre com add_reminder (o Trail ' +
         'guarda e mostra no dashboard, ja que a sessao nao fica aberta pra lembrar); list_reminders ve os pendentes.',
     },
   )
@@ -484,9 +484,9 @@ export async function runServer(config) {
     'add_reminder',
     {
       description:
-        'Registra um lembrete/agendamento no Tether. Chame SEMPRE que prometer avisar algo no futuro ' +
+        'Registra um lembrete/agendamento no Trail. Chame SEMPRE que prometer avisar algo no futuro ' +
         '("quando chegar o dia X eu te lembro") ou combinar de retomar algo numa data - a sessao nao ' +
-        'fica aberta pra lembrar sozinha; o Tether guarda e mostra no dashboard (aba Lembretes).' + scoped,
+        'fica aberta pra lembrar sozinha; o Trail guarda e mostra no dashboard (aba Lembretes).' + scoped,
       inputSchema: {
         project: z.string().optional(),
         message: z.string(),
