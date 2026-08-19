@@ -10,9 +10,21 @@ const ItemType = z.enum(['feature', 'bug', 'chore', 'idea', 'question'])
 const ItemStatus = z.enum(['backlog', 'todo', 'in_progress', 'blocked', 'done', 'dropped'])
 const Priority = z.enum(['low', 'med', 'high'])
 const Ref = z.object({ kind: z.enum(['commit', 'pr', 'file', 'item']), value: z.string().min(1) })
+// O resumo que o CLIENTE le no relatorio. A descricao abaixo e o unico lugar que ensina a IA
+// quando preencher e o que escrever - nao ha validacao de conteudo no servidor, so de tamanho.
+const DICA_RESUMO =
+  'Resumo em portugues simples do que o CLIENTE precisa entender sobre este item: o que sera ' +
+  'feito ou foi feito e por que isso importa pra ele. Sem jargao tecnico, sem nome de arquivo, ' +
+  'sem nome de funcao, sem termo de implementacao. 2 a 3 frases, ate 600 caracteres. Preencha ' +
+  'ao criar um item ja claro o suficiente para o cliente entender, ou ao concluir/avancar um ' +
+  'item (junto da mudanca de status) - e o texto que aparece pro cliente no relatorio, em vez ' +
+  'do corpo tecnico.'
+
 const ItemPatch = z.object({
   title: z.string().min(1).optional(),
   body: z.string().optional(),
+  summary: z.string().max(600).nullable().optional().describe(DICA_RESUMO),
+  assignees: z.array(z.string()).optional(),
   type: ItemType.optional(),
   status: ItemStatus.optional(),
   priority: Priority.optional(),
@@ -285,11 +297,13 @@ export async function runServer(config) {
         project: z.string().optional(),
         title: z.string(),
         body: z.string().optional(),
+        summary: z.string().max(600).optional().describe(DICA_RESUMO),
         type: ItemType.optional(),
         status: ItemStatus.optional(),
         priority: Priority.optional(),
         links: z.array(Ref).optional(),
         blocked_by: z.array(z.string()).optional(),
+        assignees: z.array(z.string()).optional(),
       },
     },
     async (args) => {
@@ -304,7 +318,9 @@ export async function runServer(config) {
   server.registerTool(
     'update_item',
     {
-      description: 'Atualiza um item (status, notas, links). Chame ao concluir ou avancar trabalho.',
+      description:
+        'Atualiza um item (status, notas, links). Chame ao concluir ou avancar trabalho. ' +
+        'patch.summary: ' + DICA_RESUMO,
       inputSchema: { id: z.string(), patch: ItemPatch },
     },
     async (args) => {

@@ -35,7 +35,25 @@ function maybeSelfUpdate() {
       /* sem stamp ainda: primeira vez, segue */
     }
     writeFileSync(stamp, String(Date.now()))
-    const sh = `git -C "${DIR}" pull --ff-only --quiet && npm --prefix "${DIR}" install --omit=dev --silent`
+    // O `npm install` reescreve o campo version do package-lock e deixa a arvore SUJA. Sem a
+    // limpeza abaixo, o `pull --ff-only` seguinte e recusado, o fail-silent engole o erro e a
+    // maquina congela NAQUELA versao para sempre - sem nada aparecer pra ninguem. Limpamos antes
+    // (destrava quem ja esta preso) e depois (nao deixa preso pra proxima). O arquivo so existe
+    // pra ser sobrescrito pelo install, entao descartar mudanca local nele nunca perde trabalho.
+    const log = join(DIR, '.last-pull.log')
+    const agora = 'date -u +%Y-%m-%dT%H:%M:%SZ'
+    const sh = [
+      '{',
+      `  git -C "${DIR}" checkout -- package-lock.json 2>/dev/null`,
+      `  if git -C "${DIR}" pull --ff-only --quiet; then`,
+      `    npm --prefix "${DIR}" install --omit=dev --silent --no-audit --no-fund`,
+      `    git -C "${DIR}" checkout -- package-lock.json 2>/dev/null`,
+      `    echo "ok $(${agora}) versao $(git -C "${DIR}" rev-parse --short HEAD)"`,
+      '  else',
+      `    echo "FALHOU $(${agora}) - segue em $(git -C "${DIR}" rev-parse --short HEAD). Rode: git -C ${DIR} status"`,
+      '  fi',
+      `} > "${log}" 2>&1`,
+    ].join('\n')
     spawn('sh', ['-c', sh], { detached: true, stdio: 'ignore' }).unref()
   } catch {
     /* atualizacao nunca pode atrapalhar o server */
